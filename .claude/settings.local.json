@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la *)",
+      "Bash(qwen)",
+      "Bash(pnpm init:*)",
+      "Bash(pnpm add *)",
+      "Bash(pnpm install)",
+      "Bash(git add .)",
+      "Bash(curl -v *)",
+      "Bash(taskkill /f /im tsx.exe)",
+      "Bash(dir \"D:\\VScode\\GitHub\\SpecKit-Plus\")",
+      "Bash(powershell Get-ChildItem -Path \"D:\\VScode\\GitHub\\SpecKit-Plus\\auth-server\\app\\api\\auth\" -Recurse)",
+      "Bash(powershell \"Get-Content -Path ''D:\\VScode\\GitHub\\SpecKit-Plus\\auth-server\\app\\api\\auth\\[...betterauth]\\route.ts''\")",
+      "Bash(npm run build)",
+      "Bash(.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks)",
+      "Bash(dir \"D:\\VScode\\GitHub\\SpecKit-Plus\\backend\" /s)",
+      "Bash(findstr -i \"schema\\|model\\|migration\\|sql\")",
+      "Bash(powershell \"Get-ChildItem -Path ''D:\\VScode\\GitHub\\SpecKit-Plus\\backend'' -Recurse | Where-Object { $_Name -match ''schema|model|migration|sql'' }\")",
+      "Bash(powershell \"Get-ChildItem -Path ''D:\\VScode\\GitHub\\SpecKit-Plus'' -Recurse -Filter ''*.py'' | Select-String -Pattern ''database\\|user_background\\|CREATE TABLE'' | Select-Object Path, LineNumber, Line\")",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "Bash(dir .claudeskill-creator)",
+      "Bash(dir \".claude\" /s)",
+      "Bash(dir \".claude/skill-creator\")",
+      "Bash(dir \".claude/skill-creator/scripts\")",
+      "Bash(python \".claude/skill-creator/scripts/init_skill.py\" better-auth-jwt-jwks --path .)",
+      "Bash(mkdir better-auth-jwt-jwks)",
+      "Bash(python \".claude/skill-creator/scripts/init_skill.py\" test-skill --path .)",
+      "Bash(rd /s /q test-skill)",
+      "Bash(del /q test-skill*)",
+      "Bash(powershell Remove-Item -Path \"test-skill\" -Recurse -Force)",
+      "Bash(cmd /c \"rmdir /s /q test-skill\")",
+      "Bash(dir test-skill)",
+      "Bash(dir /s)",
+      "Bash(dir \".claude\")",
+      "Bash(dir \".claude/commands\")"
+    ]
+  }
+}
