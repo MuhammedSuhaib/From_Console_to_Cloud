@@ -208,3 +208,4 @@ Wait for consent; never auto-create ADRs. Group related decisions (stacks, authe
 
 ## Code Standards
 See `.specify/memory/constitution.md` for code quality, testing, performance, security, and architecture principles.
+- Note: We are on Windows, but commands run in Bash. Use Bash commands (like ls, rm, etc.) OR explicitly call PowerShell/CMD when needed (like powershell "command")
