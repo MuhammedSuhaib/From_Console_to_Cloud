@@ -42,3 +42,5 @@ todos.json
 .pytest_cache/
 htmlcov/
 .coverage/
+qwenleanings.md
+learnings.md

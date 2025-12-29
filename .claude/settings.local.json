@@ -79,7 +79,11 @@
       "Bash(uv sync)",
       "Bash(uv run python -c \"from src.cli import main; main()\")",
       "Bash(uv run python -m src.main)",
-      "Bash(uv run python -m src.main add \"Test task from CLI\" --description \"Testing the CLI functionality\")"
+      "Bash(uv run python -m src.main add \"Test task from CLI\" --description \"Testing the CLI functionality\")",
+      "Bash(xargs ls -la)",
+      "Bash(python -c \"\nfrom src.todo import TodoApp\nfrom src.cli import TodoCLI\n\n# Test that the classes can be imported and instantiated\napp = TodoApp()\ncli = TodoCLI()\n\nprint(''✓ TodoApp can be instantiated'')\nprint(''✓ TodoCLI can be instantiated'')\n\n# Test basic functionality\ntodo = app.add_todo(''Test'', ''Test description'')\nprint(f''✓ Added todo: {todo.title} with ID {todo.id}'')\n\ntodos = app.list_todos()\nprint(f''✓ Listed todos: {len(todos)} todo(s) found'')\n\nsuccess = app.complete_todo(todo.id)\nprint(f''✓ Marked todo as completed: {success}'')\n\nsuccess = app.delete_todo(todo.id)\nprint(f''✓ Deleted todo: {success}'')\n\nprint(''✓ All core functionality working'')\n\")",
+      "Bash(python -c \"\nfrom src.todo import TodoApp\nfrom src.cli import TodoCLI\n\n# Test that the classes can be imported and instantiated\napp = TodoApp()\ncli = TodoCLI()\n\nprint(''SUCCESS: TodoApp can be instantiated'')\nprint(''SUCCESS: TodoCLI can be instantiated'')\n\n# Test basic functionality\ntodo = app.add_todo(''Test'', ''Test description'')\nprint(f''SUCCESS: Added todo: {todo.title} with ID {todo.id}'')\n\ntodos = app.list_todos()\nprint(f''SUCCESS: Listed todos: {len(todos)} todo(s) found'')\n\nsuccess = app.complete_todo(todo.id)\nprint(f''SUCCESS: Marked todo as completed: {success}'')\n\nsuccess = app.delete_todo(todo.id)\nprint(f''SUCCESS: Deleted todo: {success}'')\n\nprint(''SUCCESS: All core functionality working'')\n\")",
+      "Bash(python -m pip show cli-todo)"
     ]
   }
 }

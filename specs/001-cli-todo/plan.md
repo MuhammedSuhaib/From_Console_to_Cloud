@@ -3,349 +3,307 @@
 ## 1. Architecture Overview
 
 ### 1.1 System Context
-The CLI Todo application is a single-process Python application that provides command-line interface for managing todo items. The system follows a layered architecture with clear separation of concerns between domain logic, application logic, and infrastructure/persistence.
+The CLI Todo application is a single-process Python application that provides an interactive menu-driven interface for managing todo items. The system follows a simplified architecture with clear separation of concerns between domain logic and presentation layers, using questionary for interactive prompts and rich for formatted display.
 
 ### 1.2 Architecture Style
-- **Layered Architecture**: Separation of domain, application, and infrastructure layers
+- **Simplified Architecture**: Minimal layers focusing on domain and presentation
 - **Single Responsibility**: Each component has a single, well-defined purpose
-- **Dependency Inversion**: High-level modules don't depend on low-level modules
+- **Interactive-First Design**: User experience optimized for menu-driven interaction
 
-## 2. Architecture Layers
+## 2. Architecture Components
 
 ### 2.1 Domain Layer
 **Purpose**: Contains business logic and domain entities
 
 **Components**:
 - `Todo` entity: Core domain model with validation
-- `TodoRepository` interface: Abstract persistence contract
+- `TodoApp` service: In-memory storage and business operations
 - Domain services for business logic operations
 
 **Key Classes**:
 - `Todo`: Value object with id, title, description, completed, timestamps
-- `TodoRepository`: Interface defining persistence operations
+- `TodoApp`: In-memory todo application service with CRUD operations
 
-### 2.2 Application Layer
-**Purpose**: Orchestrates domain logic and coordinates with infrastructure
-
-**Components**:
-- `TodoService`: Main application service coordinating operations
-- `TodoCommandHandler`: Handles CLI commands and delegates to services
-- `TodoQueryHandler`: Handles read operations and queries
-
-### 2.3 Infrastructure Layer
-**Purpose**: Provides external services like file persistence, CLI parsing
+### 2.2 Presentation Layer
+**Purpose**: Handles user interaction and display formatting
 
 **Components**:
-- `FileTodoRepository`: File-based implementation of TodoRepository
-- `CLIParser`: Command-line argument parser
-- `Serializer`: JSON serialization for persistence
+- `TodoCLI`: Interactive CLI interface using questionary for prompts
+- `questionary`: Library for interactive command-line prompts and menus
+- `rich`: Library for rich text and beautiful formatting in terminal
 
 ## 3. Component Design
 
-### 3.1 Domain Model (`src/core/domain/todo.py`)
+### 3.1 Domain Model (`src/todo.py`)
 ```python
-from dataclasses import dataclass
+from typing import List, Optional
 from datetime import datetime
-from typing import Optional
 
-@dataclass
 class Todo:
-    id: int
-    title: str
-    description: Optional[str] = None
-    completed: bool = False
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    """Simple todo item"""
+    def __init__(self, id: int, title: str, description: str = "", completed: bool = False):
+        self.id = id
+        self.title = title
+        self.description = description
+        self.completed = completed
+        self.created_at = datetime.now()
+        self.updated_at = datetime.now()
 
-    def __post_init__(self):
-        if not self.title.strip():
+    def __repr__(self):
+        status = "✓" if self.completed else "○"
+        return f"Todo(id={self.id}, title='{self.title}', completed={self.completed})"
+
+
+class TodoApp:
+    """Simple in-memory todo application"""
+    def __init__(self):
+        self.todos: List[Todo] = []
+        self.next_id = 1
+
+    def add_todo(self, title: str, description: str = "") -> Todo:
+        """Add a new todo"""
+        if not title.strip():
             raise ValueError("Title cannot be empty")
-        if self.created_at is None:
-            self.created_at = datetime.now()
-        self.updated_at = datetime.now()
 
-    def complete(self):
-        self.completed = True
-        self.updated_at = datetime.now()
-
-    def update(self, title: Optional[str] = None, description: Optional[str] = None):
-        if title is not None:
-            self.title = title
-        if description is not None:
-            self.description = description
-        self.updated_at = datetime.now()
-```
-
-### 3.2 Repository Interface (`src/core/ports/todo_repository.py`)
-```python
-from abc import ABC, abstractmethod
-from typing import List, Optional
-from src.core.domain.todo import Todo
-
-class TodoRepository(ABC):
-    @abstractmethod
-    def add(self, todo: Todo) -> Todo:
-        pass
-
-    @abstractmethod
-    def get_by_id(self, todo_id: int) -> Optional[Todo]:
-        pass
-
-    @abstractmethod
-    def get_all(self) -> List[Todo]:
-        pass
-
-    @abstractmethod
-    def update(self, todo: Todo) -> Optional[Todo]:
-        pass
-
-    @abstractmethod
-    def delete(self, todo_id: int) -> bool:
-        pass
-```
-
-### 3.3 Application Service (`src/core/application/todo_service.py`)
-```python
-from typing import List, Optional
-from src.core.domain.todo import Todo
-from src.core.ports.todo_repository import TodoRepository
-
-class TodoService:
-    def __init__(self, repository: TodoRepository):
-        self.repository = repository
-        self._next_id = self._get_next_id()
-
-    def _get_next_id(self) -> int:
-        todos = self.repository.get_all()
-        if not todos:
-            return 1
-        return max(todo.id for todo in todos) + 1
-
-    def create_todo(self, title: str, description: Optional[str] = None) -> Todo:
-        todo = Todo(
-            id=self._next_id,
-            title=title,
-            description=description
-        )
-        self._next_id += 1
-        return self.repository.add(todo)
+        todo = Todo(self.next_id, title, description)
+        self.todos.append(todo)
+        self.next_id += 1
+        return todo
 
     def get_todo(self, todo_id: int) -> Optional[Todo]:
-        return self.repository.get_by_id(todo_id)
+        """Get a todo by ID"""
+        for todo in self.todos:
+            if todo.id == todo_id:
+                return todo
+        return None
 
-    def get_all_todos(self, completed: Optional[bool] = None, sort_by: str = "created") -> List[Todo]:
-        todos = self.repository.get_all()
-
-        # Filter by completion status if specified
-        if completed is not None:
-            todos = [todo for todo in todos if todo.completed == completed]
-
-        # Sort by specified criteria
-        if sort_by == "created":
-            todos = sorted(todos, key=lambda t: t.created_at)
-        elif sort_by == "completed":
-            todos = sorted(todos, key=lambda t: (not t.completed, t.created_at))
-        elif sort_by == "updated":
-            todos = sorted(todos, key=lambda t: t.updated_at or t.created_at)
-
-        return todos
-
-    def complete_todo(self, todo_id: int) -> bool:
-        todo = self.repository.get_by_id(todo_id)
-        if todo:
-            todo.complete()
-            self.repository.update(todo)
-            return True
-        return False
+    def list_todos(self, completed: Optional[bool] = None) -> List[Todo]:
+        """List all todos, optionally filtered by completion status"""
+        if completed is None:
+            return self.todos[:]
+        return [todo for todo in self.todos if todo.completed == completed]
 
     def update_todo(self, todo_id: int, title: Optional[str] = None, description: Optional[str] = None) -> bool:
-        todo = self.repository.get_by_id(todo_id)
+        """Update a todo"""
+        todo = self.get_todo(todo_id)
+        if not todo:
+            return False
+
+        if title is not None:
+            if not title.strip():
+                raise ValueError("Title cannot be empty")
+            todo.title = title
+        if description is not None:
+            todo.description = description
+        todo.updated_at = datetime.now()
+        return True
+
+    def complete_todo(self, todo_id: int) -> bool:
+        """Mark a todo as completed"""
+        todo = self.get_todo(todo_id)
         if todo:
-            todo.update(title, description)
-            self.repository.update(todo)
+            todo.completed = True
+            todo.updated_at = datetime.now()
             return True
         return False
 
     def delete_todo(self, todo_id: int) -> bool:
-        return self.repository.delete(todo_id)
-```
-
-### 3.4 In-Memory Repository Implementation (`src/infrastructure/repositories/in_memory_todo_repository.py`)
-```python
-from typing import List, Optional
-from src.core.domain.todo import Todo
-from src.core.ports.todo_repository import TodoRepository
-
-class InMemoryTodoRepository(TodoRepository):
-    def __init__(self):
-        self._todos: List[Todo] = []
-        self._next_id = 1
-
-    def add(self, todo: Todo) -> Todo:
-        # Set the ID if not already set
-        if todo.id == 0:  # Assuming 0 means not set
-            todo.id = self._next_id
-            self._next_id += 1
-        self._todos.append(todo)
-        return todo
-
-    def get_by_id(self, todo_id: int) -> Optional[Todo]:
-        for todo in self._todos:
+        """Delete a todo"""
+        for i, todo in enumerate(self.todos):
             if todo.id == todo_id:
-                return todo
-        return None
-
-    def get_all(self) -> List[Todo]:
-        return self._todos.copy()  # Return a copy to prevent external modification
-
-    def update(self, todo: Todo) -> Optional[Todo]:
-        for i, existing_todo in enumerate(self._todos):
-            if existing_todo.id == todo.id:
-                self._todos[i] = todo
-                return todo
-        return None
-
-    def delete(self, todo_id: int) -> bool:
-        for i, todo in enumerate(self._todos):
-            if todo.id == todo_id:
-                self._todos.pop(i)
+                del self.todos[i]
                 return True
         return False
 ```
 
-### 3.5 CLI Interface (`src/interfaces/cli.py`)
+### 3.2 Interactive CLI Interface (`src/cli.py`)
 ```python
-import argparse
-import sys
-from typing import Optional
-from src.core.application.todo_service import TodoService
+import questionary
+from rich.console import Console
+from rich.table import Table
+from .todo import TodoApp
 
-class CLIInterface:
-    def __init__(self, todo_service: TodoService):
-        self.todo_service = todo_service
 
-    def run(self, args: Optional[list] = None):
-        parser = argparse.ArgumentParser(description='Todo CLI Application')
-        subparsers = parser.add_subparsers(dest='command', help='Available commands')
+class TodoCLI:
+    def __init__(self):
+        self.app = TodoApp()
+        self.console = Console()
 
-        # Add command
-        add_parser = subparsers.add_parser('add', help='Add a new todo')
-        add_parser.add_argument('title', help='Title of the todo')
-        add_parser.add_argument('--description', '-d', help='Description of the todo')
+    def run(self, args=None):
+        """Run the interactive CLI."""
+        # Only run interactive mode
+        try:
+            self._run_interactive_mode()
+        except Exception as e:
+            # If interactive mode fails (e.g., due to terminal issues), show error
+            self.console.print(f"[red]Error starting interactive mode: {e}[/red]")
+            self.console.print("[yellow]Please run in a terminal that supports interactive prompts.[/yellow]")
 
-        # List command
-        list_parser = subparsers.add_parser('list', help='List all todos')
-        list_parser.add_argument('--completed', action='store_true', help='Show only completed todos')
-        list_parser.add_argument('--pending', action='store_true', help='Show only pending todos')
-        list_parser.add_argument('--sort', choices=['created', 'completed', 'updated'],
-                                default='created', help='Sort order for todos')
+    def _run_interactive_mode(self):
+        """Run the interactive menu system."""
+        self.console.print("[bold cyan]Welcome to Todo CLI![/bold cyan]")
 
-        # Complete command
-        complete_parser = subparsers.add_parser('complete', help='Mark a todo as completed')
-        complete_parser.add_argument('id', type=int, help='ID of the todo to complete')
+        while True:
+            choice = questionary.select(
+                "What would you like to do?",
+                choices=[
+                    "Add Todo",
+                    "List Todos",
+                    "Complete Todo",
+                    "Edit Todo",
+                    "Delete Todo",
+                    "Exit",
+                ],
+            ).ask()
 
-        # Edit command
-        edit_parser = subparsers.add_parser('edit', help='Edit a todo')
-        edit_parser.add_argument('id', type=int, help='ID of the todo to edit')
-        edit_parser.add_argument('--title', help='New title')
-        edit_parser.add_argument('--description', '-d', help='New description')
+            if choice == "Add Todo":
+                self._add_todo_interactive()
+            elif choice == "List Todos":
+                self._list_todos_interactive()
+            elif choice == "Complete Todo":
+                self._complete_todo_interactive()
+            elif choice == "Edit Todo":
+                self._edit_todo_interactive()
+            elif choice == "Delete Todo":
+                self._delete_todo_interactive()
+            elif choice == "Exit" or choice is None:
+                self.console.print("[bold cyan]Goodbye![/bold cyan]")
+                break
 
-        # Delete command
-        delete_parser = subparsers.add_parser('delete', help='Delete a todo')
-        delete_parser.add_argument('id', type=int, help='ID of the todo to delete')
-
-        # Parse arguments
-        parsed_args = parser.parse_args(args)
-
-        if parsed_args.command == 'add':
-            self._handle_add(parsed_args)
-        elif parsed_args.command == 'list':
-            self._handle_list(parsed_args)
-        elif parsed_args.command == 'complete':
-            self._handle_complete(parsed_args)
-        elif parsed_args.command == 'edit':
-            self._handle_edit(parsed_args)
-        elif parsed_args.command == 'delete':
-            self._handle_delete(parsed_args)
-        elif parsed_args.command is None:
-            parser.print_help()
-            sys.exit(1)
-        else:
-            parser.print_help()
-            sys.exit(1)
-
-    def _handle_add(self, args):
-        todo = self.todo_service.create_todo(args.title, args.description)
-        print(f"Added todo: {todo.title} (ID: {todo.id})")
-
-    def _handle_list(self, args):
-        # Determine filter for completion status
-        completed_filter = None
-        if args.completed:
-            completed_filter = True
-        elif args.pending:
-            completed_filter = False
-
-        todos = self.todo_service.get_all_todos(
-            completed=completed_filter,
-            sort_by=args.sort
-        )
-
-        if not todos:
-            print("No todos found.")
+    def _add_todo_interactive(self):
+        """Add a todo interactively."""
+        title = questionary.text("Enter todo title:").ask()
+        if not title:
+            self.console.print("[yellow]Todo title cannot be empty![/yellow]")
             return
 
-        for todo in todos:
-            status = "✓" if todo.completed else "○"
-            print(f"[{status}] {todo.id}: {todo.title}")
-            if todo.description:
-                print(f"      Description: {todo.description}")
-            if todo.created_at:
-                print(f"      Created: {todo.created_at.strftime('%Y-%m-%d %H:%M')}")
+        description = questionary.text("Enter todo description (optional):").ask() or ""
 
-    def _handle_complete(self, args):
-        success = self.todo_service.complete_todo(args.id)
-        if success:
-            print(f"Todo {args.id} marked as completed")
-        else:
-            print(f"Error: Todo with ID {args.id} not found")
-            sys.exit(1)
+        try:
+            todo = self.app.add_todo(title, description)
+            self.console.print(f"[green]Added todo: {todo.title} (ID: {todo.id})[/green]")
+        except ValueError as e:
+            self.console.print(f"[red]Error: {e}[/red]")
 
-    def _handle_edit(self, args):
-        success = self.todo_service.update_todo(args.id, args.title, args.description)
-        if success:
-            print(f"Todo {args.id} updated successfully")
-        else:
-            print(f"Error: Todo with ID {args.id} not found")
-            sys.exit(1)
+    def _list_todos_interactive(self):
+        """List todos interactively."""
+        filter_choice = questionary.select(
+            "Filter todos:",
+            choices=[
+                "All Todos",
+                "Completed Only",
+                "Pending Only",
+            ],
+        ).ask()
 
-    def _handle_delete(self, args):
-        success = self.todo_service.delete_todo(args.id)
-        if success:
-            print(f"Todo {args.id} deleted successfully")
+        completed = None
+        if filter_choice == "Completed Only":
+            completed = True
+        elif filter_choice == "Pending Only":
+            completed = False
+
+        todos = self.app.list_todos(completed=completed)
+
+        if todos:
+            table = Table(title=f"{filter_choice}")
+            table.add_column("ID", style="cyan", no_wrap=True)
+            table.add_column("Status", style="magenta")
+            table.add_column("Title", style="green")
+            table.add_column("Description", style="yellow")
+
+            for todo in todos:
+                status = "✓" if todo.completed else "○"
+                table.add_row(
+                    str(todo.id),
+                    status,
+                    todo.title,
+                    todo.description
+                )
+
+            self.console.print(table)
         else:
-            print(f"Error: Todo with ID {args.id} not found")
-            sys.exit(1)
+            self.console.print("[yellow]No todos found.[/yellow]")
+
+    def _complete_todo_interactive(self):
+        """Complete a todo interactively."""
+        todos = self.app.list_todos(completed=False)
+
+        if not todos:
+            self.console.print("[yellow]No pending todos to complete.[/yellow]")
+            return
+
+        choices = [f"{todo.id}: {todo.title}" for todo in todos]
+        choice = questionary.select("Select todo to complete:", choices=choices).ask()
+
+        if choice:
+            todo_id = int(choice.split(':')[0])
+            try:
+                self.app.complete_todo(todo_id)
+                self.console.print(f"[green]Marked todo {todo_id} as completed![/green]")
+            except ValueError as e:
+                self.console.print(f"[red]Error: {e}[/red]")
+
+    def _edit_todo_interactive(self):
+        """Edit a todo interactively."""
+        todos = self.app.list_todos()
+
+        if not todos:
+            self.console.print("[yellow]No todos to edit.[/yellow]")
+            return
+
+        choices = [f"{todo.id}: {todo.title}" for todo in todos]
+        choice = questionary.select("Select todo to edit:", choices=choices).ask()
+
+        if choice:
+            todo_id = int(choice.split(':')[0])
+
+            # Get current todo
+            current_todo = self.app.get_todo(todo_id)
+
+            # Ask for new values, keeping current ones as defaults
+            new_title = questionary.text("Enter new title:", default=current_todo.title).ask()
+            new_description = questionary.text("Enter new description:", default=current_todo.description).ask()
+
+            try:
+                self.app.update_todo(todo_id, new_title, new_description)
+                self.console.print(f"[green]Updated todo {todo_id}![/green]")
+            except ValueError as e:
+                self.console.print(f"[red]Error: {e}[/red]")
+
+    def _delete_todo_interactive(self):
+        """Delete a todo interactively."""
+        todos = self.app.list_todos()
+
+        if not todos:
+            self.console.print("[yellow]No todos to delete.[/yellow]")
+            return
+
+        choices = [f"{todo.id}: {todo.title}" for todo in todos]
+        choice = questionary.select("Select todo to delete:", choices=choices).ask()
+
+        if choice:
+            todo_id = int(choice.split(':')[0])
+            confirm = questionary.confirm(f"Are you sure you want to delete todo {todo_id}?").ask()
+
+            if confirm:
+                try:
+                    self.app.delete_todo(todo_id)
+                    self.console.print(f"[green]Deleted todo {todo_id}![/green]")
+                except ValueError as e:
+                    self.console.print(f"[red]Error: {e}[/red]")
 ```
 
-### 3.6 Main Application Entry Point (`src/main.py`)
+### 3.3 Main Application Entry Point (`src/main.py`)
 ```python
-from src.core.application.todo_service import TodoService
-from src.infrastructure.repositories.in_memory_todo_repository import InMemoryTodoRepository
-from src.interfaces.cli import CLIInterface
+import sys
+from .cli import TodoCLI
+
 
 def main():
-    # Initialize the repository
-    repository = InMemoryTodoRepository()
-
-    # Initialize the service
-    todo_service = TodoService(repository)
-
-    # Initialize the CLI interface
-    cli = CLIInterface(todo_service)
-
-    # Run the application
+    # Run in interactive mode
+    cli = TodoCLI()
     cli.run()
+
 
 if __name__ == "__main__":
     main()
@@ -355,139 +313,120 @@ if __name__ == "__main__":
 
 ```
 src/
-├── core/
-│   ├── domain/
-│   │   ├── __init__.py
-│   │   └── todo.py
-│   ├── ports/
-│   │   ├── __init__.py
-│   │   └── todo_repository.py
-│   └── application/
-│       ├── __init__.py
-│       └── todo_service.py
-├── infrastructure/
-│   ├── repositories/
-│   │   ├── __init__.py
-│   │   └── in_memory_todo_repository.py
-│   └── __init__.py
-├── interfaces/
-│   ├── __init__.py
-│   └── cli.py
-├── __init__.py
-└── main.py
+├── todo.py          # Domain model and in-memory storage
+├── cli.py           # Interactive CLI interface with questionary and rich
+├── main.py          # Application entry point
+└── __init__.py      # Package initialization
 ```
 
 ## 5. Technology Stack
 
 ### 5.1 Primary Technology
 - **Python 3.10+**: Core programming language
-- **Standard Library**: argparse for CLI parsing, json for serialization, os for file operations
+- **questionary**: Library for interactive command-line prompts and menus
+- **rich**: Library for rich text and beautiful formatting in terminal
+- **Standard Library**: datetime for timestamps, typing for type hints
 
 ### 5.2 Architecture Patterns
-- **Dependency Inversion**: Using abstract interfaces for repository pattern
 - **Single Responsibility**: Each class has a single, well-defined purpose
-- **Separation of Concerns**: Domain, application, and infrastructure layers
+- **Separation of Concerns**: Domain logic separate from presentation layer
 
 ## 6. Data Flow
 
 ### 6.1 Add Todo Flow
-1. CLI receives `todo add "Title"` command
-2. CLI parser extracts command and arguments
-3. CLI interface calls `TodoService.create_todo()`
-4. Service creates new `Todo` entity
-5. Service calls `FileTodoRepository.add()` to persist
-6. Repository serializes and saves to JSON file
+1. Interactive menu displays "Add Todo" option
+2. User selects "Add Todo" option
+3. questionary prompts user for title and optional description
+4. TodoCLI calls `TodoApp.add_todo()` with user input
+5. TodoApp creates new `Todo` entity with auto-incremented ID
+6. TodoApp stores the todo in in-memory list
+7. rich displays confirmation message
 
 ### 6.2 List Todos Flow
-1. CLI receives `todo list` command with optional filters
-2. CLI parser extracts command and options
-3. CLI interface calls `TodoService.get_all_todos()`
-4. Service retrieves all todos from repository
-5. Service applies filters and sorting
-6. CLI interface formats and displays results
+1. Interactive menu displays "List Todos" option
+2. User selects "List Todos" option
+3. questionary prompts user for filter (All, Completed Only, Pending Only)
+4. TodoCLI calls `TodoApp.list_todos()` with filter parameter
+5. TodoApp retrieves filtered todos from in-memory list
+6. rich formats todos in a table with color coding
+7. Table is displayed in terminal
 
 ### 6.3 Complete Todo Flow
-1. CLI receives `todo complete <id>` command
-2. CLI parser extracts command and ID
-3. CLI interface calls `TodoService.complete_todo()`
-4. Service retrieves todo from repository
-5. Service marks todo as completed and updates timestamp
-6. Service calls repository to update the todo
-7. Repository persists the updated todo to JSON file
+1. Interactive menu displays "Complete Todo" option
+2. User selects "Complete Todo" option
+3. TodoCLI retrieves pending todos from TodoApp
+4. questionary displays pending todos for selection
+5. User selects a todo by ID
+6. TodoCLI calls `TodoApp.complete_todo()` with selected ID
+7. TodoApp marks the todo as completed in memory
+8. rich displays confirmation message
 
 ## 7. Error Handling Strategy
 
 ### 7.1 Domain Layer
-- Input validation in the `Todo` entity constructor
-- Proper error propagation to higher layers
+- Input validation in the `Todo` entity methods (e.g., non-empty title)
+- Proper error propagation to presentation layer
 
-### 7.2 Application Layer
+### 7.2 Presentation Layer
 - Business logic validation
 - Proper error handling for non-existent todos
-
-### 7.3 Infrastructure Layer
-- File I/O error handling
-- JSON serialization/deserialization error handling
-- Graceful degradation when persistence fails
+- Terminal compatibility error handling with user guidance
+- Rich error messages using rich formatting
 
 ## 8. Performance Considerations
 
-### 8.1 File I/O Optimization
-- Read entire file once per operation
-- Write entire file once per operation
-- For large todo lists, consider memory-mapped files
+### 8.1 Memory Usage
+- All todos stored in memory during session (acceptable for typical todo lists)
+- Performance optimized for interactive response times (< 1 second)
 
-### 8.2 Memory Usage
-- Load all todos into memory at once (acceptable for small datasets)
-- Consider lazy loading for very large todo lists
+### 8.2 Interactive Performance
+- Menu navigation and operations respond within 1 second
+- Rich table formatting optimized for typical todo list sizes
 
 ## 9. Testing Strategy
 
 ### 9.1 Unit Tests
 - Test domain entity methods and validation
-- Test application service logic
-- Test repository interface implementations
+- Test TodoApp service logic (add, list, complete, edit, delete operations)
+- Test edge cases and error conditions
 
 ### 9.2 Integration Tests
-- Test CLI command flows
 - Test end-to-end functionality
-- Test file persistence behavior
+- Test interactive flow behavior
+- Test integration between domain and presentation layers
 
 ### 9.3 Test Coverage
 - 100% coverage for core domain logic
 - High coverage for application services
-- Integration tests for CLI interface
+- Integration tests for interactive CLI interface
 
 ## 10. Security Considerations
 
 ### 10.1 Input Validation
-- Validate all user inputs in the domain layer
-- Prevent injection attacks through proper serialization
-
-### 10.2 File Security
-- Validate file paths to prevent directory traversal
-- Handle file permissions appropriately
+- Validate all user inputs in the domain layer (e.g., non-empty titles)
+- No external data sources to validate
+- In-memory only, no file system access
 
 ## 11. Deployment Strategy
 
 ### 11.1 Packaging
-- Package as Python application with setup.py
-- Include all dependencies in requirements.txt
-- Provide installation instructions
+- Package as Python application with pyproject.toml
+- Include all dependencies (questionary, rich) in configuration
+- Provide installation instructions using uv
 
 ### 11.2 Execution
 - Run directly with Python interpreter
-- Create command-line executable script
+- Console script available as `todo` command after installation
 - Cross-platform compatibility
 
 ## 12. Maintenance and Evolution
 
 ### 12.1 Extension Points
-- Repository interface allows for different persistence strategies
-- Service layer can be extended with new business logic
-- CLI interface can be extended with new commands
+- TodoApp service can be extended with new business logic
+- Interactive CLI can be extended with new menu options
+- Domain model can be extended with additional fields (per constitution)
 
 ### 12.2 Backward Compatibility
-- Maintain same command-line interface
-- Preserve data format compatibility
+- Maintain same interactive menu structure
+- Preserve core functionality across versions
 - Follow semantic versioning for breaking changes
