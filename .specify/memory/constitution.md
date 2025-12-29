@@ -138,6 +138,7 @@ Todo:
 - Separation of concerns: domain logic ≠ infrastructure
 - No global mutable state
 - Dependency injection for testability
+- Use uv as the package manager for all Python dependencies
 
 **Forbidden**:
 - Mixing business logic with I/O operations
@@ -274,6 +275,24 @@ Todo:
 - Magic numbers or strings
 - Dead code or commented-out code blocks
 
+### Dependency Management
+
+**Requirements**:
+- Use uv as the ONLY package manager for Python projects (no pip, no conda)
+- All dependencies must be declared in pyproject.toml or requirements.txt
+- Use `uv add [package-name]` to add new dependencies
+- Use `uv sync` to install dependencies from pyproject.toml
+- Pin dependency versions in production environments
+- Regular dependency updates and security scanning
+
+### Platform and Commands
+
+**Requirements**:
+- This project runs on Windows operating system
+- Use Windows-native commands only (no Linux/Unix commands like rm, del, etc.)
+- Use PowerShell or Windows Command Prompt commands as appropriate
+- Respect Windows file path conventions
+
 ### Documentation Quality
 
 **Required per Phase**:
@@ -341,7 +360,7 @@ Todo:
 **Phase I**: In-Memory Python CLI
 - Core domain model
 - CRUD operations
-- File-based persistence (optional)
+- In-memory storage (no persistence between runs)
 - CLI interface
 
 **Phase II**: Web Application
