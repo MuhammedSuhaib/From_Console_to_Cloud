@@ -1,6 +1,6 @@
 // frontend/full-stack-todo/components/TaskItem.tsx
-import React from 'react';
-import { Task } from '../types';
+import React from "react";
+import { Task } from "../types";
 
 interface TaskItemProps {
   task: Task;
@@ -23,6 +23,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onDelete }) => {
       className="flex items-center p-4 bg-gray-100 rounded-lg shadow hover:shadow-md transition"
     >
       <input
+        placeholder="checkbox"
         type="checkbox"
         checked={task.completed}
         onChange={handleToggle}
@@ -31,7 +32,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onDelete }) => {
       <div className="flex-1 min-w-0">
         <p
           className={`truncate ${
-            task.completed ? 'line-through text-gray-500' : 'text-gray-900'
+            task.completed ? "line-through text-gray-500" : "text-gray-900"
           }`}
         >
           {task.title}
@@ -46,11 +47,15 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onDelete }) => {
         )}
       </div>
       <div className="ml-4 flex items-center space-x-2">
-        <span className={`px-2 py-1 text-xs rounded-full ${
-          task.priority === 'high' ? 'bg-red-100 text-red-800' :
-          task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-          'bg-green-100 text-green-800'
-        }`}>
+        <span
+          className={`px-2 py-1 text-xs rounded-full ${
+            task.priority === "high"
+              ? "bg-red-100 text-red-800"
+              : task.priority === "medium"
+              ? "bg-yellow-100 text-yellow-800"
+              : "bg-green-100 text-green-800"
+          }`}
+        >
           {task.priority}
         </span>
         <button
