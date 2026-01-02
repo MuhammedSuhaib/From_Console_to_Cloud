@@ -83,7 +83,19 @@
       "Bash(xargs ls -la)",
       "Bash(python -c \"\nfrom src.todo import TodoApp\nfrom src.cli import TodoCLI\n\n# Test that the classes can be imported and instantiated\napp = TodoApp()\ncli = TodoCLI()\n\nprint(''✓ TodoApp can be instantiated'')\nprint(''✓ TodoCLI can be instantiated'')\n\n# Test basic functionality\ntodo = app.add_todo(''Test'', ''Test description'')\nprint(f''✓ Added todo: {todo.title} with ID {todo.id}'')\n\ntodos = app.list_todos()\nprint(f''✓ Listed todos: {len(todos)} todo(s) found'')\n\nsuccess = app.complete_todo(todo.id)\nprint(f''✓ Marked todo as completed: {success}'')\n\nsuccess = app.delete_todo(todo.id)\nprint(f''✓ Deleted todo: {success}'')\n\nprint(''✓ All core functionality working'')\n\")",
       "Bash(python -c \"\nfrom src.todo import TodoApp\nfrom src.cli import TodoCLI\n\n# Test that the classes can be imported and instantiated\napp = TodoApp()\ncli = TodoCLI()\n\nprint(''SUCCESS: TodoApp can be instantiated'')\nprint(''SUCCESS: TodoCLI can be instantiated'')\n\n# Test basic functionality\ntodo = app.add_todo(''Test'', ''Test description'')\nprint(f''SUCCESS: Added todo: {todo.title} with ID {todo.id}'')\n\ntodos = app.list_todos()\nprint(f''SUCCESS: Listed todos: {len(todos)} todo(s) found'')\n\nsuccess = app.complete_todo(todo.id)\nprint(f''SUCCESS: Marked todo as completed: {success}'')\n\nsuccess = app.delete_todo(todo.id)\nprint(f''SUCCESS: Deleted todo: {success}'')\n\nprint(''SUCCESS: All core functionality working'')\n\")",
-      "Bash(python -m pip show cli-todo)"
+      "Bash(python -m pip show cli-todo)",
+      "Bash(move \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\history\\prompts\\002-phase-2-web\\0001-initial-structure-setup.phr.md\" \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\history\\prompts\\002-web-todo\\0001-initial-structure-setup.phr.md\")",
+      "Bash(powershell \"Move-Item -Path ''D:\\VScode\\GitHub\\From_Console_to_Cloud\\history\\prompts\\002-phase-2-web\\0001-initial-structure-setup.phr.md'' -Destination ''D:\\VScode\\GitHub\\From_Console_to_Cloud\\history\\prompts\\002-web-todo\\0001-initial-structure-setup.phr.md''\")",
+      "Bash(dir:*)",
+      "Bash(powershell \"Get-ChildItem -Path ''D:\\VScode\\GitHub\\From_Console_to_Cloud\\history\\prompts\\002-web-todo\\''\")",
+      "Bash(powershell \"Move-Item -Path ''D:\\VScode\\GitHub\\From_Console_to_Cloud\\history\\prompts\\002-web-todo\\0001-initial-structure-setup.phr.md'' -Destination ''D:\\VScode\\GitHub\\From_Console_to_Cloud\\history\\prompts\\002-web-todo\\0005-initial-structure-setup.phr.md''\")",
+      "Bash(powershell \"Get-Content ''D:\\VScode\\GitHub\\From_Console_to_Cloud\\history\\prompts\\002-web-todo\\0001-update-phase2-constitution.constitution.prompt.md'' | head -20\")",
+      "Bash(git --version)",
+      "Bash(git rev-parse --is-inside-work-tree)",
+      "Bash(git rev-parse --abbrev-ref HEAD)",
+      "Bash(git commit -m \"feat(auth): implement authentication UI components for web todo app\")",
+      "Bash(git reset --soft HEAD~1)",
+      "Bash(git add frontend/full-stack-todo/app/auth/ frontend/full-stack-todo/app/dashboard/page.tsx frontend/full-stack-todo/components/AuthGuard.tsx frontend/full-stack-todo/components/LoadingSpinner.tsx frontend/full-stack-todo/context/AuthContext.tsx frontend/full-stack-todo/app/page.tsx frontend/full-stack-todo/app/layout.tsx frontend/full-stack-todo/lib/api.ts)"
     ]
   }
 }

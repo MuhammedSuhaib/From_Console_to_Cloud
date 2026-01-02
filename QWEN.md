@@ -213,3 +213,14 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 
 ## Qwen Added Memories
 - We only usee uv and pnpm no pip no npm , corrects commands to add are uv add [pkg name] like wise pnpm add [pkg name] , If u find trouble in any tech stak you have a /mcp tool with context7 connected you can use that to read docs and also web search tool is also at there
+
+## PHR (Prompt History Record) Guidelines
+When creating PHRs, follow these rules:
+1. Use the standard template from `.specify/templates/phr-template.prompt.md`
+2. Include proper model name (Qwen) and user name (get username from git config)
+3. Follow the correct naming convention: `NNNN-title.stage.prompt.md`
+4. Check that the ID number is not already used by another agent by using `list_directory` in the PHR folder
+5. Use proper YAML frontmatter with all required fields
+6. Include proper links to related specifications
+7. List all relevant files in the `files:` section
+8. Fix grammar and spelling in the content
