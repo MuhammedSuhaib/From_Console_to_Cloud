@@ -39,7 +39,7 @@ class User(SQLModel, table=True):
 
 
 # Database setup
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://username:password@localhost/todo_db")
+DATABASE_URL = os.getenv("DATABASE_URL")  # Using SQLite for local development
 engine = create_engine(DATABASE_URL, echo=True)
 
 
