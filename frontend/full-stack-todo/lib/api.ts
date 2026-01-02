@@ -9,6 +9,7 @@ class ApiClient {
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    console.log('Making API request:', { endpoint, options });
     const token = this.getAuthToken();
     const headers = {
       'Content-Type': 'application/json',
@@ -16,10 +17,14 @@ class ApiClient {
       ...options.headers,
     };
 
+    console.log('Request headers:', headers);
+
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       ...options,
       headers,
     });
+
+    console.log('Response received:', { status: response.status, ok: response.ok });
 
     if (response.status === 401) {
       // Handle unauthorized - maybe redirect to login
@@ -30,10 +35,13 @@ class ApiClient {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('API request failed:', errorData);
       throw new Error(errorData.detail || `API request failed: ${response.statusText}`);
     }
 
-    return response.json();
+    const result = await response.json();
+    console.log('API response data:', result);
+    return result;
   }
 
   private getAuthToken(): string | null {
@@ -49,10 +57,13 @@ class ApiClient {
   }
 
   async createTask(userId: string, task: TaskCreate): Promise<Task> {
-    return this.request<Task>(`/api/users/${userId}/tasks`, {
+    console.log('Creating task:', { userId, task });
+    const result = await this.request<Task>(`/api/users/${userId}/tasks`, {
       method: 'POST',
       body: JSON.stringify(task),
     });
+    console.log('Task creation result:', result);
+    return result;
   }
 
   async getTask(userId: string, taskId: number): Promise<Task> {

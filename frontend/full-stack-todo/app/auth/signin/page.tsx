@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export default function SignInPage() {
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -17,33 +19,21 @@ export default function SignInPage() {
     setError('');
 
     try {
-      // In a real app, this would call an API endpoint
-      // For now, we'll simulate the API call
-      const response = await fetch('/api/auth/signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (response.ok) {
-        // Redirect to dashboard after successful sign-in
-        router.push('/dashboard');
-      } else {
-        const data = await response.json();
-        setError(data.message || 'Invalid credentials');
-      }
-    } catch (err) {
-      setError('Failed to connect to server');
+      await signIn(email, password);
+      // Redirect to dashboard after successful sign-in
+      router.push('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Invalid credentials');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-black py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
             Sign in to your account
           </h2>
         </div>

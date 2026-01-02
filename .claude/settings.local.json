@@ -95,7 +95,24 @@
       "Bash(git rev-parse --abbrev-ref HEAD)",
       "Bash(git commit -m \"feat(auth): implement authentication UI components for web todo app\")",
       "Bash(git reset --soft HEAD~1)",
-      "Bash(git add frontend/full-stack-todo/app/auth/ frontend/full-stack-todo/app/dashboard/page.tsx frontend/full-stack-todo/components/AuthGuard.tsx frontend/full-stack-todo/components/LoadingSpinner.tsx frontend/full-stack-todo/context/AuthContext.tsx frontend/full-stack-todo/app/page.tsx frontend/full-stack-todo/app/layout.tsx frontend/full-stack-todo/lib/api.ts)"
+      "Bash(git add frontend/full-stack-todo/app/auth/ frontend/full-stack-todo/app/dashboard/page.tsx frontend/full-stack-todo/components/AuthGuard.tsx frontend/full-stack-todo/components/LoadingSpinner.tsx frontend/full-stack-todo/context/AuthContext.tsx frontend/full-stack-todo/app/page.tsx frontend/full-stack-todo/app/layout.tsx frontend/full-stack-todo/lib/api.ts)",
+      "Bash(dir D:VScodeGitHubFrom_Console_to_Cloudbackend.env.example)",
+      "Bash(dir D:VScodeGitHubFrom_Console_to_Cloudbackend)",
+      "Bash(uvicorn main:app --reload --port 8000)",
+      "Bash(curl http://localhost:8000/)",
+      "Bash(curl http://localhost:8000/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/docs)",
+      "Bash(curl -v http://localhost:8000/api/users/test/tasks)",
+      "Bash(curl -X DELETE http://localhost:8000/kill)",
+      "Bash(curl -X GET http://localhost:8000/api/users/test/tasks)",
+      "Bash(curl -X POST http://localhost:8000/api/users/test/tasks -H \"Content-Type: application/json\" -d '{\"\"title\"\":\"\"Test Task\"\",\"\"description\"\":\"\"This is a test task\"\"}')",
+      "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\backend\" /s /b)",
+      "Bash(findstr -i \"auth\")",
+      "Bash(powershell \"Get-ChildItem -Path ''D:\\VScode\\GitHub\\From_Console_to_Cloud\\backend'' -Recurse -Directory | Where-Object {$_Name -like ''*auth*''}\")",
+      "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\backend\\auth\" /b)",
+      "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\backend\\dependencies\" /b)",
+      "Bash(curl -X POST http://localhost:8000/api/users/testuser/tasks -H \"Content-Type: application/json\" -d '{\"\"title\"\":\"\"Another Test Task\"\",\"\"description\"\":\"\"This is another test task\"\"}')",
+      "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\frontend\\full-stack-todo\\app\\api\\auth\" /b)"
     ]
   }
 }

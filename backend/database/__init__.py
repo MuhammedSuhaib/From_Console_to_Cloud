@@ -1,16 +1,17 @@
-from sqlmodel import create_engine, Session
-from typing import Generator
+from sqlmodel import Session, create_engine, SQLModel
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
-
-# Database URL - using environment variable or default
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./todo_app.db")
-
-# Create engine
+# Database setup
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://username:password@localhost/todo_db")
 engine = create_engine(DATABASE_URL, echo=True)
 
-def get_session() -> Generator[Session, None, None]:
+def create_db_and_tables():
+    """Create database tables"""
+    SQLModel.metadata.create_all(engine)
+
+from contextlib import contextmanager
+
+@contextmanager
+def get_session():
     with Session(engine) as session:
         yield session

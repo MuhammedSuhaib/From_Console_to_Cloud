@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 import jwt
@@ -43,7 +43,7 @@ def verify_token(token: str):
         raise credentials_exception
 
 
-async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)):
+async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     token = credentials.credentials
     user_id = verify_token(token)
     return user_id

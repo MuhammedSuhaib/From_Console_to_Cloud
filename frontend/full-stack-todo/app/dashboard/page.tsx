@@ -23,6 +23,9 @@ export default function DashboardPage() {
   const [input, setInput] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(true);
+  const [addingTodo, setAddingTodo] = useState(false);
+  const [updatingTodo, setUpdatingTodo] = useState<number | null>(null);
+  const [deletingTodo, setDeletingTodo] = useState<number | null>(null);
 
   useEffect(() => {
     if (user) loadTodos();
@@ -39,41 +42,69 @@ export default function DashboardPage() {
   };
 
   const addTodo = async () => {
-    if (!input.trim() || !user) return;
+    console.log('addTodo called', { input, user });
+    if (!input.trim() || !user) {
+      console.log('addTodo cancelled - no input or no user', { input: input.trim(), user });
+      return;
+    }
 
+    console.log('Starting to add todo...');
+    setAddingTodo(true);
     try {
+      console.log('Calling API to create task...');
       const newTodo = await api.createTask(user.id, {
         title: input,
         description,
         priority: "medium",
         tags: [],
       });
+      console.log('Task created successfully:', newTodo);
       setTodos([...todos, newTodo]);
       setInput("");
       setDescription("");
+      console.log('State updated, input cleared');
     } catch (error) {
       console.error('Error adding todo:', error);
+    } finally {
+      console.log('Setting addingTodo to false');
+      setAddingTodo(false);
     }
   };
 
   const toggleTodo = async (id: number) => {
     if (!user) return;
-    const updated = await api.toggleTaskCompletion(user.id, id);
-    setTodos(todos.map((t) => (t.id === id ? updated : t)));
+
+    setUpdatingTodo(id);
+    try {
+      const updated = await api.toggleTaskCompletion(user.id, id);
+      setTodos(todos.map((t) => (t.id === id ? updated : t)));
+    } catch (error) {
+      console.error('Error toggling todo:', error);
+    } finally {
+      setUpdatingTodo(null);
+    }
   };
 
   const deleteTodo = async (id: number) => {
     if (!user) return;
-    await api.deleteTask(user.id, id);
-    setTodos(todos.filter((t) => t.id !== id));
+
+    setDeletingTodo(id);
+    try {
+      await api.deleteTask(user.id, id);
+      setTodos(todos.filter((t) => t.id !== id));
+    } catch (error) {
+      console.error('Error deleting todo:', error);
+    } finally {
+      setDeletingTodo(null);
+    }
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-gray-50 min-h-screen">
+    <div className="max-w-4xl mx-auto p-6 min-h-screen">
       <header className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Todo Dashboard</h1>
+        <h1 className="text-3xl font-bold text-white">Todo Dashboard</h1>
         <div className="flex items-center gap-4">
-          <span className="text-gray-700">
+          <span className="text-white">
             Welcome, {user?.name || user?.email}
           </span>
           <button
@@ -114,9 +145,14 @@ export default function DashboardPage() {
 
           <button
             onClick={addTodo}
-            className="self-start px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            disabled={addingTodo}
+            className={`self-start px-6 py-2 rounded-lg ${
+              addingTodo
+                ? 'bg-blue-400 cursor-not-allowed'
+                : 'bg-blue-500 hover:bg-blue-600'
+            } text-white`}
           >
-            Add Todo
+            {addingTodo ? 'Adding...' : 'Add Todo'}
           </button>
         </div>
       </div>
@@ -127,7 +163,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+          <h2 className="text-2xl font-semibold text-white mb-4">
             Your Todos
           </h2>
 
@@ -145,7 +181,10 @@ export default function DashboardPage() {
                     type="checkbox"
                     checked={todo.completed}
                     onChange={() => toggleTodo(todo.id)}
-                    className="mr-4 h-5 w-5 accent-blue-600"
+                    disabled={updatingTodo === todo.id}
+                    className={`mr-4 h-5 w-5 ${
+                      updatingTodo === todo.id ? 'cursor-not-allowed opacity-50' : 'accent-blue-600'
+                    }`}
                   />
 
                   <div className="flex-1">
@@ -168,9 +207,14 @@ export default function DashboardPage() {
 
                   <button
                     onClick={() => deleteTodo(todo.id)}
-                    className="ml-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                    disabled={deletingTodo === todo.id}
+                    className={`ml-4 px-4 py-2 rounded-lg ${
+                      deletingTodo === todo.id
+                        ? 'bg-red-400 cursor-not-allowed'
+                        : 'bg-red-500 hover:bg-red-600'
+                    } text-white`}
                   >
-                    Delete
+                    {deletingTodo === todo.id ? 'Deleting...' : 'Delete'}
                   </button>
                 </li>
               ))}

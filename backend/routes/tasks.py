@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
 from sqlmodel import Session, select
 from datetime import datetime
-from ..models import Task
-from ..schemas.task import TaskCreate, TaskUpdate, TaskResponse
-from ..database import get_session
+from models import Task
+from schemas.task import TaskCreate, TaskUpdate, TaskResponse
+from database import get_session
 
 router = APIRouter(prefix="/api", tags=["tasks"])
 
@@ -17,7 +17,7 @@ async def list_tasks(
     query = select(Task).where(Task.user_id == user_id)
     if completed is not None:
         query = query.where(Task.completed == completed)
-    
+
     tasks = session.exec(query).all()
     return tasks
 

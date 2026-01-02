@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Check for existing session on initial load
   useEffect(() => {
-    const token = localStorage.getItem('auth-token');
+    const token = localStorage.getItem('auth_token');
     if (token) {
       // In a real app, we would validate the token with an API call
       // For now, we'll just assume the token is valid and fetch user data
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUserData = async (token: string) => {
     try {
-      const response = await fetch('/api/auth/me', {
+      const response = await fetch('http://localhost:8000/auth/me', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -54,60 +54,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       } else {
         // Token is invalid, clear it
-        localStorage.removeItem('auth-token');
+        localStorage.removeItem('auth_token');
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
-      localStorage.removeItem('auth-token');
+      localStorage.removeItem('auth_token');
     } finally {
       setLoading(false);
     }
   };
 
   const signIn = async (email: string, password: string) => {
-    const response = await fetch('/api/auth/signin', {
+    // Call the backend authentication API
+    const response = await fetch('http://localhost:8000/auth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
 
     if (response.ok) {
-      const { token, user } = await response.json();
-      localStorage.setItem('auth-token', token);
+      const { access_token, user } = await response.json();
+      localStorage.setItem('auth_token', access_token);
       setUser(user);
       router.push('/dashboard');
     } else {
       const error = await response.json();
-      throw new Error(error.message || 'Sign in failed');
+      throw new Error(error.detail || 'Sign in failed');
     }
   };
 
   const signUp = async (name: string, email: string, password: string) => {
-    const response = await fetch('/api/auth/signup', {
+    // Call the backend authentication API for sign up
+    const response = await fetch('http://localhost:8000/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, password }),
     });
 
     if (response.ok) {
-      const { token, user } = await response.json();
-      localStorage.setItem('auth-token', token);
+      const { access_token, user } = await response.json();
+      localStorage.setItem('auth_token', access_token);
       setUser(user);
       router.push('/dashboard');
     } else {
       const error = await response.json();
-      throw new Error(error.message || 'Sign up failed');
+      throw new Error(error.detail || 'Sign up failed');
     }
   };
 
   const signOut = () => {
-    localStorage.removeItem('auth-token');
+    localStorage.removeItem('auth_token');
     setUser(null);
     router.push('/auth/signin');
   };
 
   const getToken = () => {
-    return localStorage.getItem('auth-token');
+    return localStorage.getItem('auth_token');
   };
 
   const value = {

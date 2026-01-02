@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routes import tasks
-import os
+from routes import tasks
+from routes import auth
+from models import create_db_and_tables
 
 app = FastAPI(title="Todo API", version="1.0.0")
 
@@ -16,6 +17,7 @@ app.add_middleware(
 
 # Include routes
 app.include_router(tasks.router)
+app.include_router(auth.router)
 
 @app.get("/")
 def read_root():
@@ -24,3 +26,8 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+
+# Create database tables on startup
+@app.on_event("startup")
+def on_startup():
+    create_db_and_tables()

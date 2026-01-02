@@ -1,13 +1,8 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
-import jwt
+from jose import jwt, JWTError
 from datetime import datetime, timedelta
-from ..database import get_session
-from ..models import User
-from sqlmodel import Session, select
-from jose import JWTError
-
 
 # JWT Configuration
 SECRET_KEY = "your-secret-key-here"  # In production, use a strong secret from environment

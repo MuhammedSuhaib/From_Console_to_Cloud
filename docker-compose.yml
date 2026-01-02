@@ -9,7 +9,6 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=${DATABASE_URL}
-      - FASTAPI_SECRET_KEY=${FASTAPI_SECRET_KEY}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
     depends_on:
       - db

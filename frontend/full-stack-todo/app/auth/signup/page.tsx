@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export default function SignUpPage() {
+  const { signUp } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -18,33 +20,21 @@ export default function SignUpPage() {
     setError('');
 
     try {
-      // In a real app, this would call an API endpoint
-      // For now, we'll simulate the API call
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name }),
-      });
-
-      if (response.ok) {
-        // Redirect to dashboard or sign-in page after successful signup
-        router.push('/auth/signin');
-      } else {
-        const data = await response.json();
-        setError(data.message || 'Something went wrong');
-      }
-    } catch (err) {
-      setError('Failed to connect to server');
+      await signUp(name, email, password);
+      // Redirect to dashboard after successful signup
+      router.push('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-black py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
             Create your account
           </h2>
         </div>
@@ -55,7 +45,7 @@ export default function SignUpPage() {
             </div>
           )}
 
-          <div className="rounded-md shadow-sm -space-y-px">
+          <div className="rounded-md shadow-sm -space-y-px bg-white">
             <div>
               <label htmlFor="name" className="sr-only">
                 Full Name
