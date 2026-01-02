@@ -97,6 +97,7 @@ Todo:
 
 **Intermediate Extensions (Phase II - Additive)**:
 ```
+  - user_id: string (foreign key for user association)
   - priority: enum (low, medium, high)
   - tags: list of strings
   - category: single classification
@@ -139,12 +140,18 @@ Todo:
 - No global mutable state
 - Dependency injection for testability
 - Use uv as the package manager for all Python dependencies
+- SQLModel ORM for database operations with Neon Serverless PostgreSQL
+- FastAPI framework for REST API development
+- JWT token verification middleware for authentication
+- User isolation - each user only accesses their own data
+- REST API endpoints following standard conventions
 
 **Forbidden**:
 - Mixing business logic with I/O operations
 - Hardcoded configuration values
 - Circular dependencies between modules
 - Undocumented magic numbers or strings
+- Database queries without proper user filtering in authenticated endpoints
 
 ### Next.js Frontend Standards (Phase II+)
 
@@ -154,12 +161,16 @@ Todo:
 - Responsive design (mobile-first)
 - Accessibility (WCAG 2.1 AA minimum)
 - Error boundaries for graceful degradation
+- Better Auth integration for user authentication and session management
+- JWT token handling for API communication
+- API client properly configured to attach JWT tokens to requests
 
 **Forbidden**:
 - Direct database access from frontend
 - Hardcoded API URLs
 - Inline styles (use CSS modules or Tailwind)
 - Unvalidated user input
+- Storing sensitive authentication data in local storage without proper security measures
 
 ### AI Agent Standards (Phase III+)
 
@@ -206,6 +217,21 @@ Todo:
 │   │   └── constitution.md          # THIS FILE
 │   ├── templates/                    # SDD templates
 │   └── scripts/                      # Automation scripts
+├── specs/
+│   ├── overview.md                   # Project overview
+│   ├── architecture.md               # System architecture
+│   ├── features/                     # Feature specifications
+│   │   ├── task-crud.md
+│   │   ├── authentication.md
+│   │   └── chatbot.md
+│   ├── api/                          # API specifications
+│   │   ├── rest-endpoints.md
+│   │   └── mcp-tools.md
+│   ├── database/                     # Database specifications
+│   │   └── schema.md
+│   └── ui/                           # UI specifications
+│       ├── components.md
+│       └── pages.md
 ├── history/
 │   ├── adr/                          # Architecture Decision Records
 │   │   └── NNNN-decision-title.md
@@ -213,29 +239,44 @@ Todo:
 │       ├── constitution/
 │       ├── <feature-name>/
 │       └── general/
-├── specs/
-│   └── <feature-name>/
-│       ├── spec.md                   # Feature specification
-│       ├── plan.md                   # Architecture plan
-│       └── tasks.md                  # Task breakdown
-├── src/
-│   └── <phase-name>/                 # e.g., phase-1-cli, phase-2-web
-│       ├── core/                     # Domain logic
-│       ├── interfaces/               # CLI/API/UI
-│       └── infrastructure/           # DB, file I/O, external services
+├── frontend/                         # Next.js application
+│   ├── app/                          # Next.js app router pages
+│   ├── components/                   # React components
+│   ├── lib/                          # Utility functions and API client
+│   ├── public/                       # Static assets
+│   ├── styles/                       # Global styles
+│   ├── CLAUDE.md                     # Frontend-specific guidelines
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── next.config.js
+├── backend/                          # FastAPI application
+│   ├── main.py                       # FastAPI app entry point
+│   ├── models.py                     # SQLModel database models
+│   ├── routes/                       # API route handlers
+│   ├── auth/                         # Authentication middleware
+│   ├── database/                     # Database connection and setup
+│   ├── dependencies/                 # FastAPI dependencies
+│   ├── schemas/                      # Pydantic models
+│   ├── CLAUDE.md                     # Backend-specific guidelines
+│   ├── requirements.txt
+│   └── alembic/                      # Database migrations
 ├── tests/
 │   ├── unit/
 │   ├── integration/
 │   └── e2e/
 ├── infra/
 │   ├── docker/
+│   │   ├── frontend.Dockerfile
+│   │   ├── backend.Dockerfile
+│   │   └── docker-compose.yml
 │   ├── kubernetes/
 │   └── terraform/                    # Infrastructure as Code
 ├── docs/
 │   └── <phase-name>/
 │       └── README.md                 # Setup and usage per phase
+├── .env.example                      # Environment variables template
 ├── README.md                         # Project overview
-└── CLAUDE.md                         # AI agent instructions
+└── CLAUDE.md                         # Root AI agent instructions
 ```
 
 **Enforcement**: No alternative structures permitted. All new phases must follow this layout.
@@ -322,12 +363,17 @@ Todo:
 - Secrets management (environment variables, secret managers)
 - HTTPS/TLS for all production traffic
 - Regular dependency vulnerability scanning
+- JWT token validation with proper secret key verification
+- User data isolation - each user only accesses their own resources
+- Proper authentication middleware on all protected endpoints
+- Secure session management with Better Auth
 
 **Forbidden**:
 - Storing passwords in plaintext
 - Trusting client-side validation alone
 - Exposing sensitive data in logs or error messages
 - Using deprecated cryptographic algorithms
+- Allowing cross-user data access without proper authorization
 
 ### Data Privacy
 
@@ -339,7 +385,39 @@ Todo:
 
 ---
 
-## VII. Phase Evolution Rules
+## VII. API Governance (Phase II+)
+
+### REST API Standards
+
+**Requirements**:
+- Standard HTTP methods (GET, POST, PUT, DELETE, PATCH)
+- RESTful URL patterns with user context: `/api/{user_id}/tasks`
+- Proper HTTP status codes (200, 201, 400, 401, 404, 500)
+- JSON request/response payloads
+- Authentication via JWT tokens in Authorization header
+- User isolation: all queries filtered by authenticated user ID
+- Pagination for collection endpoints
+- Proper error response format
+
+**API Endpoints for Todo Management**:
+```
+GET    /api/{user_id}/tasks       # List all tasks for user
+POST   /api/{user_id}/tasks       # Create a new task
+GET    /api/{user_id}/tasks/{id}  # Get specific task
+PUT    /api/{user_id}/tasks/{id}  # Update a task
+DELETE /api/{user_id}/tasks/{id}  # Delete a task
+PATCH  /api/{user_id}/tasks/{id}/complete  # Toggle completion
+```
+
+**Authentication Requirements**:
+- All endpoints require valid JWT token in Authorization header
+- Requests without token receive 401 Unauthorized
+- Each user only sees/modify their own tasks
+- Task ownership enforced on every operation using user_id
+
+---
+
+## VIII. Phase Evolution Rules
 
 ### Phase Transition Requirements
 
@@ -363,11 +441,16 @@ Todo:
 - In-memory storage (no persistence between runs)
 - CLI interface
 
-**Phase II**: Web Application
-- REST API (FastAPI)
-- Next.js frontend
-- Database persistence (PostgreSQL/SQLite)
-- Authentication and authorization
+**Phase II**: Full-Stack Web Application with Authentication
+- Frontend: Next.js 16+ (App Router) with TypeScript and Tailwind CSS
+- Backend: Python FastAPI with SQLModel ORM
+- Database: Neon Serverless PostgreSQL for persistent storage
+- Authentication: Better Auth with JWT tokens for user management
+- Multi-user support with user isolation
+- REST API endpoints following best practices
+- Responsive web interface for task management
+- Task CRUD operations with user ownership
+- API endpoints secured with JWT authentication
 
 **Phase III**: AI-Powered
 - Natural language interface
@@ -389,7 +472,7 @@ Todo:
 
 ---
 
-## VIII. Workflow Enforcement
+## IX. Workflow Enforcement
 
 ### SDD Workflow (Strictly Required)
 
@@ -442,7 +525,7 @@ Todo:
 
 ---
 
-## IX. Human-AI Collaboration Contract
+## X. Human-AI Collaboration Contract
 
 ### Human as Architect
 
@@ -487,7 +570,7 @@ Todo:
 
 ---
 
-## X. Academic & Professional Integrity
+## XI. Academic & Professional Integrity
 
 ### Honesty Requirements
 
@@ -510,7 +593,7 @@ Todo:
 
 ---
 
-## XI. Versioning & Change Management
+## XII. Versioning & Change Management
 
 ### Constitution Amendments
 
@@ -537,7 +620,7 @@ Todo:
 
 ---
 
-## XII. Governance & Enforcement
+## XIII. Governance & Enforcement
 
 ### Constitution Supremacy
 
@@ -584,7 +667,7 @@ Todo:
 
 ---
 
-## XIII. Final Authority
+## XIV. Final Authority
 
 This Constitution represents the governing law of **The Evolution of Todo** project.
 
