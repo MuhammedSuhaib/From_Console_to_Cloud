@@ -36,7 +36,6 @@ Thumbs.db
 
 # Data
 todos.json
-*.json
 
 # Testing
 .pytest_cache/
