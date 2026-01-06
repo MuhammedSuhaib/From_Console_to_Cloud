@@ -112,7 +112,9 @@
       "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\backend\\auth\" /b)",
       "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\backend\\dependencies\" /b)",
       "Bash(curl -X POST http://localhost:8000/api/users/testuser/tasks -H \"Content-Type: application/json\" -d '{\"\"title\"\":\"\"Another Test Task\"\",\"\"description\"\":\"\"This is another test task\"\"}')",
-      "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\frontend\\full-stack-todo\\app\\api\\auth\" /b)"
+      "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\frontend\\full-stack-todo\\app\\api\\auth\" /b)",
+      "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\frontend\\full-stack-todo\")",
+      "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\full-stack-todo\")"
     ]
   }
 }
