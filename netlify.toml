@@ -1,7 +1,7 @@
 [build]
   base = "full-stack-todo"
   command = "pnpm run build"
-  publish = "full-stack-todo/.next"
+  publish = ".next"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
