@@ -1,7 +1,7 @@
 [build]
   base = "full-stack-todo"
   command = "pnpm run build"
-  publish = ".next"
-  environment = { NODE_VERSION = "18", NPM_FLAGS = "--version" }
+  publish = "full-stack-todo/.next"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
