@@ -34,8 +34,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check for existing session on initial load
   useEffect(() => {
     // Get current session from Better Auth
-    auth.getSession().then((session) => {
+    auth.getSession().then(async (session) => {
       if (session?.data?.user) {
+        // If we have a valid session, ensure we have a JWT for API calls
+        const jwtRes = await auth.getJwt();
+        if (jwtRes.data?.token) {
+          localStorage.setItem('auth_token', jwtRes.data.token);
+        }
+
         setUser({
           id: session.data.user.id,
           email: session.data.user.email,

@@ -3,36 +3,42 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer
 from jose import jwt, JWTError
 import os
+import requests
 
 logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
 
-SECRET_KEY = os.getenv("BETTER_AUTH_SECRET")
-
-if not SECRET_KEY:
-    raise RuntimeError("BETTER_AUTH_SECRET is missing")
-
-ALGORITHM = "HS256"
+# This is where Next.js is running
+BETTER_AUTH_URL = os.getenv("BETTER_AUTH_URL", "http://localhost:3000")
 
 def get_current_user_id(creds = Depends(security)) -> str:
-    logger.info(f"Verifying JWT token: {creds.credentials[:20]}..." if creds.credentials else "No credentials provided")
+    token = creds.credentials
     try:
-        payload = jwt.decode(creds.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        logger.info(f"JWT decoded successfully, payload keys: {list(payload.keys())}")
+        # 1. Get the Key ID (kid) from the token header
+        unverified_header = jwt.get_unverified_header(token)
+        kid = unverified_header.get('kid')
+
+        # 2. Fetch the public keys from the Next.js auth server
+        # In a real app, you would cache this so it's not slow!
+        jwks_url = f"{BETTER_AUTH_URL}/api/auth/.well-known/jwks.json"
+        res = requests.get(jwks_url)
+        jwks = res.json()
+
+        # 3. Find the correct key
+        key = next((k for k in jwks['keys'] if k['kid'] == kid), None)
+        if not key:
+            raise Exception("Public key not found")
+
+        # 4. Verify and decode
+        payload = jwt.decode(token, key, algorithms=['RS256'])
 
         user_id = payload.get("sub")
-        logger.info(f"Extracted user_id from 'sub': {user_id}")
+        if not user_id:
+            raise Exception("No user_id in token")
 
-        if not isinstance(user_id, str):
-            logger.error(f"user_id is not a string: {type(user_id)}, value: {user_id}")
-            raise Exception("Invalid user_id type")
+        return str(user_id)
 
-        logger.info(f"Returning user_id: {user_id}")
-        return user_id
-    except JWTError as e:
-        logger.error(f"JWT decode error: {str(e)}")
-        raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
-        logger.error(f"General error in JWT verification: {str(e)}")
-        raise HTTPException(status_code=401, detail="Invalid token")
+        logger.error(f"Auth failed: {str(e)}")
+        raise HTTPException(status_code=401, detail="Invalid or expired token")

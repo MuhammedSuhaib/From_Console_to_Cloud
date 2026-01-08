@@ -35,8 +35,18 @@ export default function SignUpPage() {
     }
 
     // Store the auth token in localStorage for the API calls
-    if (res.data?.session?.token) {
-      localStorage.setItem('auth_token', res.data.session.token);
+    if (res.data) {
+      // Get the JWT specifically for the API
+      const jwtRes = await auth.getJwt();
+
+      if (jwtRes.data?.token) {
+        // Save the ACTUAL JWT to localStorage
+        localStorage.setItem('auth_token', jwtRes.data.token);
+        console.log("JWT Token saved for API calls");
+      } else {
+        // Fallback: If JWT plugin isn't returning a token, use session token
+        localStorage.setItem('auth_token', res.data.session.token);
+      }
     }
 
     router.push('/dashboard');
