@@ -1,93 +1,47 @@
-// lib/api.ts
-import { Task, TaskCreate, TaskUpdate } from '../types';
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
-class ApiClient {
-  private baseUrl: string;
-  
-  constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-  }
+async function request<T>(path: string, options: RequestInit = {}) {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("auth_token")
+      : null;
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    console.log('Making API request:', { endpoint, options });
-    const token = this.getAuthToken();
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-      ...options.headers,
-    };
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  });
 
-    console.log('Request headers:', headers);
-
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    console.log('Response received:', { status: response.status, ok: response.ok });
-
-    if (response.status === 401) {
-      // Handle unauthorized - maybe redirect to login
-      console.error('Unauthorized access - redirecting to login');
-      // window.location.href = '/auth/signin'; // Uncomment in actual implementation
-      throw new Error('Unauthorized: Please login again');
-    }
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('API request failed:', errorData);
-      throw new Error(errorData.detail || `API request failed: ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    console.log('API response data:', result);
-    return result;
-  }
-
-  private getAuthToken(): string | null {
-    // Get JWT token from storage (could be localStorage, cookie, etc.)
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('auth_token');
-    }
-    return null;
-  }
-
-  async getTasks(userId: string): Promise<Task[]> {
-    return this.request<Task[]>(`/api/users/${userId}/tasks`);
-  }
-
-  async createTask(userId: string, task: TaskCreate): Promise<Task> {
-    console.log('Creating task:', { userId, task });
-    const result = await this.request<Task>(`/api/users/${userId}/tasks`, {
-      method: 'POST',
-      body: JSON.stringify(task),
-    });
-    console.log('Task creation result:', result);
-    return result;
-  }
-
-  async getTask(userId: string, taskId: number): Promise<Task> {
-    return this.request<Task>(`/api/users/${userId}/tasks/${taskId}`);
-  }
-
-  async updateTask(userId: string, taskId: number, updates: TaskUpdate): Promise<Task> {
-    return this.request<Task>(`/api/users/${userId}/tasks/${taskId}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates),
-    });
-  }
-
-  async deleteTask(userId: string, taskId: number): Promise<void> {
-    await this.request(`/api/users/${userId}/tasks/${taskId}`, {
-      method: 'DELETE',
-    });
-  }
-
-  async toggleTaskCompletion(userId: string, taskId: number): Promise<Task> {
-    return this.request<Task>(`/api/users/${userId}/tasks/${taskId}/complete`, {
-      method: 'PATCH',
-    });
-  }
+  if (!res.ok) throw new Error("API error");
+  const json = await res.json();
+  return json.data as T;
 }
 
-export const api = new ApiClient();
+export const api = {
+  getTasks: () => request("/api/tasks"),
+
+  createTask: (data: any) =>
+    request("/api/tasks", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateTask: (id: number, data: any) =>
+    request(`/api/tasks/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  deleteTask: (id: number) =>
+    request(`/api/tasks/${id}`, {
+      method: "DELETE",
+    }),
+
+  toggleComplete: (id: number) =>
+    request(`/api/tasks/${id}/complete`, {
+      method: "PATCH",
+    }),
+};

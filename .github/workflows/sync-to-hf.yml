@@ -1,0 +1,55 @@
+name: Sync Backend to Hugging Face
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/sync-to-hf.yml'
+
+jobs:
+  sync-to-hf:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Filter backend directory
+        run: |
+          git clone --no-checkout https://github.com/${{ github.repository }}.git temp-repo
+          cd temp-repo
+          git config core.sparseCheckout true
+          echo "backend/*" >> .git/info/sparse-checkout
+          git checkout ${{ github.sha }}
+          cd ..
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install huggingface_hub
+
+      - name: Login to Hugging Face
+        run: |
+          python -c "from huggingface_hub import HfFolder; HfFolder.save_token('${{ secrets.HF_TOKEN }}')"
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+      - name: Upload backend to Hugging Face Space
+        run: |
+          cd backend
+          git init
+          git remote add hf https://oauth2:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/${{ secrets.HF_SPACE_NAME }}/backend
+          git add .
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update backend from GitHub"
+          git push -f hf main
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}

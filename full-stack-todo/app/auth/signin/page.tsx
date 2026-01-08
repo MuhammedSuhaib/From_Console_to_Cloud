@@ -1,32 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth } from './../../../context/AuthContext';
+import { createAuthClient } from 'better-auth/client';
+
+const auth = createAuthClient({
+  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || 'http://localhost:3000',
+});
 
 export default function SignInPage() {
-  const { signIn } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
   const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError(null);
 
-    try {
-      await signIn(email, password);
-      // Redirect to dashboard after successful sign-in
-      router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Invalid credentials');
-    } finally {
+    const res = await auth.signIn.email({
+      email,
+      password,
+    });
+
+    if (res.error) {
+      setError(res.error.message ?? 'Sign in failed');
       setLoading(false);
+      return;
     }
+
+    // Store the auth token in localStorage for the API calls
+    if (res.data?.session?.token) {
+      localStorage.setItem('auth_token', res.data.session.token);
+    }
+
+    router.push('/dashboard');
   };
 
   return (
@@ -46,11 +57,11 @@ export default function SignInPage() {
 
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="email-address" className="sr-only">
+              <label htmlFor="email" className="sr-only">
                 Email address
               </label>
               <input
-                id="email-address"
+                id="email"
                 name="email"
                 type="email"
                 autoComplete="email"

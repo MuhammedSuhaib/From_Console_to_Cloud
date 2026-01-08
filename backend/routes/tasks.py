@@ -1,137 +1,85 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from datetime import datetime
 from models import Task
-from schemas.task import TaskCreate, TaskUpdate, TaskResponse
+from schemas.tasks import TaskCreate, TaskUpdate, TaskResponse
 from database import get_session
+from auth.jwt import get_current_user_id
 
 router = APIRouter(prefix="/api", tags=["tasks"])
 
-@router.get("/users/{user_id}/tasks", response_model=List[TaskResponse])
-async def list_tasks(
-    user_id: str,
-    completed: Optional[bool] = None,
-    session: Session = Depends(get_session)
+
+@router.get("/tasks")
+def list_tasks(
+    session: Session = Depends(get_session),
+    user_id: str = Depends(get_current_user_id),
 ):
-    query = select(Task).where(Task.user_id == user_id)
-    if completed is not None:
-        query = query.where(Task.completed == completed)
+    tasks = session.exec(
+        select(Task).where(Task.user_id == user_id)
+    ).all()
+    return {"data": tasks}
 
-    tasks = session.exec(query).all()
-    return tasks
 
-@router.post("/users/{user_id}/tasks", response_model=TaskResponse)
-async def create_task(
-    user_id: str,
+@router.post("/tasks")
+def create_task(
     task: TaskCreate,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    user_id: str = Depends(get_current_user_id),
 ):
-    db_task = Task(
-        user_id=user_id,
-        title=task.title,
-        description=task.description,
-        priority=task.priority,
-        category=task.category,
-        tags=task.tags
-    )
+    db_task = Task(**task.dict(), user_id=user_id)
     session.add(db_task)
     session.commit()
     session.refresh(db_task)
-    return db_task
+    return {"data": db_task}
 
-@router.get("/users/{user_id}/tasks/{task_id}", response_model=TaskResponse)
-async def get_task(
-    user_id: str,
+
+@router.put("/tasks/{task_id}")
+def update_task(
     task_id: int,
-    session: Session = Depends(get_session)
+    updates: TaskUpdate,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(get_current_user_id),
 ):
     task = session.get(Task, task_id)
-    if not task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found"
-        )
-    if task.user_id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this task"
-        )
-    
-    return task
+    if not task or task.user_id != user_id:
+        raise HTTPException(status_code=404)
 
-@router.put("/users/{user_id}/tasks/{task_id}", response_model=TaskResponse)
-async def update_task(
-    user_id: str,
-    task_id: int,
-    task_update: TaskUpdate,
-    session: Session = Depends(get_session)
-):
-    db_task = session.get(Task, task_id)
-    if not db_task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found"
-        )
-    if db_task.user_id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this task"
-        )
-    
-    # Update task fields
-    for field, value in task_update.dict(exclude_unset=True).items():
-        setattr(db_task, field, value)
-    
-    db_task.updated_at = datetime.now()
-    session.add(db_task)
-    session.commit()
-    session.refresh(db_task)
-    return db_task
+    for k, v in updates.dict(exclude_unset=True).items():
+        setattr(task, k, v)
 
-@router.delete("/users/{user_id}/tasks/{task_id}")
-async def delete_task(
-    user_id: str,
-    task_id: int,
-    session: Session = Depends(get_session)
-):
-    db_task = session.get(Task, task_id)
-    if not db_task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found"
-        )
-    if db_task.user_id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to delete this task"
-        )
-    
-    session.delete(db_task)
+    task.updated_at = datetime.utcnow()
     session.commit()
-    return {"message": "Task deleted successfully"}
+    session.refresh(task)
+    return {"data": task}
 
-@router.patch("/users/{user_id}/tasks/{task_id}/complete", response_model=TaskResponse)
-async def toggle_task_completion(
-    user_id: str,
+
+@router.delete("/tasks/{task_id}")
+def delete_task(
     task_id: int,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    user_id: str = Depends(get_current_user_id),
 ):
-    db_task = session.get(Task, task_id)
-    if not db_task:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found"
-        )
-    if db_task.user_id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this task"
-        )
-    
-    db_task.completed = not db_task.completed
-    db_task.updated_at = datetime.now()
-    session.add(db_task)
+    task = session.get(Task, task_id)
+    if not task or task.user_id != user_id:
+        raise HTTPException(status_code=404)
+
+    session.delete(task)
     session.commit()
-    session.refresh(db_task)
-    return db_task
+    return {"data": {"ok": True}}
+
+
+@router.patch("/tasks/{task_id}/complete")
+def toggle_complete(
+    task_id: int,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(get_current_user_id),
+):
+    task = session.get(Task, task_id)
+    if not task or task.user_id != user_id:
+        raise HTTPException(status_code=404)
+
+    task.completed = not task.completed
+    task.updated_at = datetime.utcnow()
+    session.commit()
+    session.refresh(task)
+    return {"data": task}

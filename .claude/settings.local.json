@@ -114,7 +114,12 @@
       "Bash(curl -X POST http://localhost:8000/api/users/testuser/tasks -H \"Content-Type: application/json\" -d '{\"\"title\"\":\"\"Another Test Task\"\",\"\"description\"\":\"\"This is another test task\"\"}')",
       "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\frontend\\full-stack-todo\\app\\api\\auth\" /b)",
       "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\frontend\\full-stack-todo\")",
-      "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\full-stack-todo\")"
+      "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\full-stack-todo\")",
+      "Bash(python generate_architecture.py)",
+      "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\full-stack-todo\" /s)",
+      "Bash(del \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\backend\\app.py\")",
+      "Bash(powershell Remove-Item \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\backend\\app.py\")",
+      "Bash(pnpm add pg)"
     ]
   }
 }

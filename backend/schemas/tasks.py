@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
@@ -13,13 +13,13 @@ class TaskPriority(str, Enum):
 class TaskBase(BaseModel):
     title: str
     description: Optional[str] = None
-    priority: Optional[TaskPriority] = TaskPriority.medium
+    priority: TaskPriority = TaskPriority.medium
     category: Optional[str] = None
-    tags: List[str] = []
+    tags: List[str] = Field(default_factory=list)
 
 
 class TaskCreate(TaskBase):
-    title: str  # Required field for creation
+    pass
 
 
 class TaskUpdate(BaseModel):
@@ -37,13 +37,3 @@ class TaskResponse(TaskBase):
     completed: bool
     created_at: datetime
     updated_at: datetime
-
-
-class UserBase(BaseModel):
-    email: str
-    name: Optional[str] = None
-
-
-class UserResponse(UserBase):
-    id: str
-    created_at: datetime

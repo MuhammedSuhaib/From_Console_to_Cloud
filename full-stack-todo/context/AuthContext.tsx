@@ -2,6 +2,12 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { createAuthClient } from 'better-auth/client';
+
+// Initialize Better Auth client
+const auth = createAuthClient({
+  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || 'http://localhost:3000',
+});
 
 interface User {
   id: string;
@@ -27,82 +33,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Check for existing session on initial load
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      // In a real app, we would validate the token with an API call
-      // For now, we'll just assume the token is valid and fetch user data
-      fetchUserData(token);
-    } else {
+    // Get current session from Better Auth
+    auth.getSession().then((session) => {
+      if (session?.data?.user) {
+        setUser({
+          id: session.data.user.id,
+          email: session.data.user.email,
+          name: session.data.user.name || session.data.user.email.split('@')[0],
+        });
+      }
       setLoading(false);
-    }
+    }).catch(() => {
+      // If session is invalid, clear any stored tokens
+      localStorage.removeItem('auth_token');
+      setLoading(false);
+    });
   }, []);
 
-  const fetchUserData = async (token: string) => {
-    try {
-      const response = await fetch('http://localhost:8000/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser({
-          id: userData.id,
-          email: userData.email,
-          name: userData.name,
-        });
-      } else {
-        // Token is invalid, clear it
-        localStorage.removeItem('auth_token');
-      }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-      localStorage.removeItem('auth_token');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const signIn = async (email: string, password: string) => {
-    // Call the backend authentication API
-    const response = await fetch('http://localhost:8000/auth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-
-    if (response.ok) {
-      const { access_token, user } = await response.json();
-      localStorage.setItem('auth_token', access_token);
-      setUser(user);
-      router.push('/dashboard');
-    } else {
-      const error = await response.json();
-      throw new Error(error.detail || 'Sign in failed');
+    const result = await auth.signIn.email({ email, password });
+    if (result.error) {
+      throw new Error(result.error.message || 'Sign in failed');
     }
+
+    // Store session token for API calls
+    if (result.data?.session?.token) {
+      localStorage.setItem('auth_token', result.data.session.token);
+      setUser({
+        id: result.data.user.id,
+        email: result.data.user.email,
+        name: result.data.user.name || result.data.user.email.split('@')[0],
+      });
+    }
+
+    router.push('/dashboard');
   };
 
   const signUp = async (name: string, email: string, password: string) => {
-    // Call the backend authentication API for sign up
-    const response = await fetch('http://localhost:8000/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password }),
-    });
-
-    if (response.ok) {
-      const { access_token, user } = await response.json();
-      localStorage.setItem('auth_token', access_token);
-      setUser(user);
-      router.push('/dashboard');
-    } else {
-      const error = await response.json();
-      throw new Error(error.detail || 'Sign up failed');
+    const result = await auth.signUp.email({ email, password, name });
+    if (result.error) {
+      throw new Error(result.error.message || 'Sign up failed');
     }
+
+    // Store session token for API calls
+    if (result.data?.session?.token) {
+      localStorage.setItem('auth_token', result.data.session.token);
+      setUser({
+        id: result.data.user.id,
+        email: result.data.user.email,
+        name: result.data.user.name || result.data.user.email.split('@')[0],
+      });
+    }
+
+    router.push('/dashboard');
   };
 
-  const signOut = () => {
+  const signOut = async () => {
+    await auth.signOut();
     localStorage.removeItem('auth_token');
     setUser(null);
     router.push('/auth/signin');

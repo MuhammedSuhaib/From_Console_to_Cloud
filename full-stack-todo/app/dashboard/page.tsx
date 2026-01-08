@@ -28,13 +28,14 @@ export default function DashboardPage() {
   const [deletingTodo, setDeletingTodo] = useState<number | null>(null);
 
   useEffect(() => {
-    if (user) loadTodos();
-  }, [user]);
+    loadTodos();
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
 
   const loadTodos = async () => {
     try {
-      if (!user) return;
-      const fetchedTodos = await api.getTasks(user.id);
+      const fetchedTodos = await api.getTasks();
       setTodos(fetchedTodos);
     } finally {
       setLoading(false);
@@ -42,9 +43,9 @@ export default function DashboardPage() {
   };
 
   const addTodo = async () => {
-    console.log('addTodo called', { input, user });
-    if (!input.trim() || !user) {
-      console.log('addTodo cancelled - no input or no user', { input: input.trim(), user });
+    console.log('addTodo called', { input });
+    if (!input.trim()) {
+      console.log('addTodo cancelled - no input', { input: input.trim() });
       return;
     }
 
@@ -52,7 +53,7 @@ export default function DashboardPage() {
     setAddingTodo(true);
     try {
       console.log('Calling API to create task...');
-      const newTodo = await api.createTask(user.id, {
+      const newTodo = await api.createTask({
         title: input,
         description,
         priority: "medium",
@@ -72,11 +73,9 @@ export default function DashboardPage() {
   };
 
   const toggleTodo = async (id: number) => {
-    if (!user) return;
-
     setUpdatingTodo(id);
     try {
-      const updated = await api.toggleTaskCompletion(user.id, id);
+      const updated = await api.toggleComplete(id);
       setTodos(todos.map((t) => (t.id === id ? updated : t)));
     } catch (error) {
       console.error('Error toggling todo:', error);
@@ -86,11 +85,9 @@ export default function DashboardPage() {
   };
 
   const deleteTodo = async (id: number) => {
-    if (!user) return;
-
     setDeletingTodo(id);
     try {
-      await api.deleteTask(user.id, id);
+      await api.deleteTask(id);
       setTodos(todos.filter((t) => t.id !== id));
     } catch (error) {
       console.error('Error deleting todo:', error);
