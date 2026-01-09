@@ -16,15 +16,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Filter backend directory
-        run: |
-          git clone --no-checkout https://github.com/${{ github.repository }}.git temp-repo
-          cd temp-repo
-          git config core.sparseCheckout true
-          echo "backend/*" >> .git/info/sparse-checkout
-          git checkout ${{ github.sha }}
-          cd ..
-
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -34,21 +25,26 @@ jobs:
         run: |
           pip install huggingface_hub
 
-      - name: Login to Hugging Face
-        run: |
-          python -c "from huggingface_hub import HfFolder; HfFolder.save_token('${{ secrets.HF_TOKEN }}')"
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-
       - name: Upload backend to Hugging Face Space
         run: |
+          # Go into the backend folder
           cd backend
+          
+          # Initialize a git repo inside the backend folder to push only its contents
           git init
-          git remote add hf https://oauth2:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/${{ secrets.HF_SPACE_NAME }}/backend
-          git add .
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Add the HF remote. Notice there is no /backend at the end of the URL
+          git remote add hf https://oauth2:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/${{ secrets.HF_SPACE_NAME }}
+          
+          # Force the current branch to be named 'main' (HF Spaces default)
+          git checkout -b main
+          
+          git add .
           git commit -m "Update backend from GitHub"
+          
+          # Push to the 'main' branch of the HF Space
           git push -f hf main
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}

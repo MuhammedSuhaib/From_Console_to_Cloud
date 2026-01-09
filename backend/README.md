@@ -1,15 +1,14 @@
 ---
 title: Todo API
-emoji: 🚀
-colorFrom: blue
-colorTo: green
+emoji: ✅
+colorFrom: indigo
+colorTo: blue
 sdk: docker
-pinned: false
-license: mit
+app_port: 7860
 ---
 
-# Todo API Backend
-
+# Todo Backend API
+FastAPI backend for the Todo application.
 This is a FastAPI backend for a todo application, deployed on Hugging Face Spaces using Docker.
 
 ## API Endpoints
