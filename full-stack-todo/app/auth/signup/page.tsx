@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { createAuthClient } from 'better-auth/client';
 
 const auth = createAuthClient({
@@ -15,45 +14,48 @@ export default function SignUpPage() {
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const router = useRouter();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const res = await auth.signUp.email({
-      email,
-      password,
-      name,
-    });
+    try {
+      console.log("Attempting signup for:", email);
+      const res = await auth.signUp.email({
+        email,
+        password,
+        name,
+      });
 
-    if (res.error) {
-      setError(res.error.message ?? 'Sign up failed');
-      setLoading(false);
-      return;
-    }
+      console.log("Signup Response:", res);
 
-    // Store the auth token in localStorage for the API calls
-    if (res.data) {
-      // Get the JWT specifically for the API
-      const jwtRes = await auth.getJwt();
-
-      if (jwtRes.data?.token) {
-        // Save the ACTUAL JWT to localStorage
-        localStorage.setItem('auth_token', jwtRes.data.token);
-        console.log("JWT Token saved for API calls");
-      } else {
-        // Fallback: If JWT plugin isn't returning a token, use session token
-        localStorage.setItem('auth_token', res.data.session.token);
+      if (res.error) {
+        setError(res.error.message ?? 'Sign up failed');
+        setLoading(false);
+        return;
       }
-    }
 
-    router.push('/dashboard');
+      // Fixed: Accessing token directly as per the error message
+      const token = res.data?.token;
+
+      if (token) {
+        localStorage.setItem('auth_token', token);
+        console.log("Token saved, performing hard redirect...");
+        window.location.href = '/dashboard';
+      } else {
+        console.warn("User created but no session token found. Redirecting to sign-in.");
+        window.location.href = '/auth/signin';
+      }
+    } catch (err) {
+      console.error("Critical Signup Error:", err);
+      setLoading(false);
+      setError("An unexpected error occurred. Please try signing in.");
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-black py-12 px-4 sm:px-6 lg:px-8 text-gray-900">
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
@@ -69,47 +71,30 @@ export default function SignUpPage() {
 
           <div className="rounded-md shadow-sm -space-y-px bg-white">
             <div>
-              <label htmlFor="name" className="sr-only">
-                Full Name
-              </label>
               <input
-                id="name"
-                name="name"
                 type="text"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Full Name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
             </div>
-            <div className="-mt-px">
-              <label htmlFor="email" className="sr-only">
-                Email address
-              </label>
+            <div>
               <input
-                id="email"
-                name="email"
                 type="email"
-                autoComplete="email"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div className="-mt-px">
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
+            <div>
               <input
-                id="password"
-                name="password"
                 type="password"
-                autoComplete="current-password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -127,7 +112,7 @@ export default function SignUpPage() {
             </button>
           </div>
         </form>
-        <div className="text-center text-sm text-gray-600">
+        <div className="text-center text-sm text-gray-400">
           Already have an account?{' '}
           <Link href="/auth/signin" className="font-medium text-indigo-600 hover:text-indigo-500">
             Sign in

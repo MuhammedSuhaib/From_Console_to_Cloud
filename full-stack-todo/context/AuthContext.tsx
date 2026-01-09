@@ -33,27 +33,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Check for existing session on initial load
   useEffect(() => {
-    // Get current session from Better Auth
-    auth.getSession().then(async (session) => {
-      if (session?.data?.user) {
-        // If we have a valid session, ensure we have a JWT for API calls
-        const jwtRes = await auth.getJwt();
-        if (jwtRes.data?.token) {
-          localStorage.setItem('auth_token', jwtRes.data.token);
-        }
+    async function initAuth() {
+      try {
+        const session = await auth.getSession();
+        if (session?.data?.user) {
+          // getSession usually nests token inside session, but we check both to be safe
+          const token = session.data.session?.token || (session.data as any).token;
+          if (token) localStorage.setItem('auth_token', token);
 
-        setUser({
-          id: session.data.user.id,
-          email: session.data.user.email,
-          name: session.data.user.name || session.data.user.email.split('@')[0],
-        });
+          setUser({
+            id: session.data.user.id,
+            email: session.data.user.email,
+            name: session.data.user.name || session.data.user.email.split('@')[0],
+          });
+        }
+      } catch (err) {
+        console.error("Session check failed", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    }).catch(() => {
-      // If session is invalid, clear any stored tokens
-      localStorage.removeItem('auth_token');
-      setLoading(false);
-    });
+    }
+    initAuth();
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -62,9 +62,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(result.error.message || 'Sign in failed');
     }
 
-    // Store session token for API calls
-    if (result.data?.session?.token) {
-      localStorage.setItem('auth_token', result.data.session.token);
+    // Per your error message, token is at the root of data for signIn
+    const token = result.data?.token;
+    if (token) {
+      localStorage.setItem('auth_token', token);
       setUser({
         id: result.data.user.id,
         email: result.data.user.email,
@@ -81,9 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(result.error.message || 'Sign up failed');
     }
 
-    // Store session token for API calls
-    if (result.data?.session?.token) {
-      localStorage.setItem('auth_token', result.data.session.token);
+    // Per your error message, token is at the root of data for signUp
+    const token = result.data?.token;
+    if (token) {
+      localStorage.setItem('auth_token', token);
       setUser({
         id: result.data.user.id,
         email: result.data.user.email,

@@ -2,204 +2,131 @@
 ```
  Directory of D:\VScode\GitHub\From_Console_to_Cloud\backend
 
-Microsoft Windows [Version 10.0.19045.6466]
-(c) Microsoft Corporation. All rights reserved.
-
-D:\VScode\GitHub\From_Console_to_Cloud\backend>d:\VScode\GitHub\From_Console_to_Cloud\.venv\Scripts\activate.bat
-
-(cli-todo) D:\VScode\GitHub\From_Console_to_Cloud\backend>dir /s
- Volume in drive D is New Volume
- Volume Serial Number is DC90-C5B0
-
- Directory of D:\VScode\GitHub\From_Console_to_Cloud\backend  
-
-01/08/2026  02:16 PM    <DIR>          .
-01/08/2026  02:16 PM    <DIR>          ..
-01/07/2026  03:33 PM               518 .env
-01/02/2026  11:53 PM               449 .env.example
-01/03/2026  01:47 AM                38 .env.local
-01/03/2026  02:08 AM               543 .gitignore
-01/08/2026  01:47 PM               779 app.py
-01/07/2026  03:07 PM    <DIR>          auth
-01/08/2026  02:20 PM             7,519 BACKEND_ARCHITECTURE.md
-01/03/2026  02:08 AM             1,611 CLAUDE.md
-01/07/2026  03:20 PM    <DIR>          database
-01/08/2026  01:48 PM             1,119 deploy_hf.sh
-01/08/2026  01:52 PM               266 Dockerfile
-01/08/2026  01:50 PM               910 main.py
-01/07/2026  02:46 PM               735 models.py
-01/08/2026  01:48 PM               667 README.md
-01/03/2026  02:08 AM               181 requirements.txt      
-01/07/2026  03:20 PM    <DIR>          routes
-01/07/2026  03:20 PM    <DIR>          schemas
-01/08/2026  01:52 PM                31 space.yaml
-01/07/2026  03:28 PM               487 update_neon_schema.sql
-01/07/2026  03:20 PM    <DIR>          __pycache__
-              15 File(s)         15,853 bytes
-
- Directory of D:\VScode\GitHub\From_Console_to_Cloud\backend\auth
-
-01/07/2026  03:07 PM    <DIR>          .
-01/07/2026  03:07 PM    <DIR>          ..
-01/07/2026  02:46 PM               800 jwt.py
-               1 File(s)            800 bytes
-
- Directory of D:\VScode\GitHub\From_Console_to_Cloud\backend\database
-
-01/07/2026  03:20 PM    <DIR>          .
-01/07/2026  03:20 PM    <DIR>          ..
-01/07/2026  02:10 PM               352 __init__.py
-01/07/2026  03:20 PM    <DIR>          __pycache__
-               1 File(s)            352 bytes
-
- Directory of D:\VScode\GitHub\From_Console_to_Cloud\backend\database\__pycache__
-
-01/07/2026  03:20 PM    <DIR>          .
-01/07/2026  03:20 PM    <DIR>          ..
-01/07/2026  03:20 PM               906 __init__.cpython-313.pyc
-               1 File(s)            906 bytes
-
- Directory of D:\VScode\GitHub\From_Console_to_Cloud\backend\routes
-
-01/07/2026  03:20 PM    <DIR>          .
-01/07/2026  03:20 PM    <DIR>          ..
-01/07/2026  02:47 PM             2,314 tasks.py
-01/07/2026  03:20 PM    <DIR>          __pycache__
-               1 File(s)          2,314 bytes
-
- Directory of D:\VScode\GitHub\From_Console_to_Cloud\backend\routes\__pycache__
-
-01/07/2026  03:20 PM    <DIR>          .
-01/07/2026  03:20 PM    <DIR>          ..
-01/07/2026  03:20 PM             4,008 tasks.cpython-313.pyc
-               1 File(s)          4,008 bytes
-
- Directory of D:\VScode\GitHub\From_Console_to_Cloud\backend\schemas
-
-01/07/2026  03:20 PM    <DIR>          .
-01/07/2026  03:20 PM    <DIR>          ..
-01/07/2026  03:23 PM               852 tasks.py
-01/07/2026  03:24 PM    <DIR>          __pycache__
-               1 File(s)            852 bytes
-
- Directory of D:\VScode\GitHub\From_Console_to_Cloud\backend\schemas\__pycache__
-
-01/07/2026  03:24 PM    <DIR>          .
-01/07/2026  03:24 PM    <DIR>          ..
-01/07/2026  03:24 PM             2,164 tasks.cpython-313.pyc
-               1 File(s)          2,164 bytes
-
- Directory of D:\VScode\GitHub\From_Console_to_Cloud\backend\__pycache__
-
-01/07/2026  03:20 PM    <DIR>          .
-01/07/2026  03:20 PM    <DIR>          ..
-01/07/2026  03:20 PM               932 main.cpython-313.pyc
-01/07/2026  03:20 PM             1,580 models.cpython-313.pyc
-               2 File(s)          2,512 bytes
-
-     Total Files Listed:
-              24 File(s)         29,761 bytes
-              26 Dir(s)  25,998,491,648 bytes free
-
-(cli-todo) D:\VScode\GitHub\From_Console_to_Cloud\backend>
-```
-
-# app.py
-```python
-import os
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from routes import tasks
-from database import create_db_and_tables
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-
-app = FastAPI(title="Todo API on Hugging Face")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend domain
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.include_router(tasks.router)
-
-@app.on_event("startup")
-def startup():
-    create_db_and_tables()
-
-@app.get("/")
-def read_root():
-    return {"message": "Todo API running on Hugging Face Spaces!"}
-
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}
+__pycache__/
+auth/
+database/
+models/
+routes/
+schemas/
+.env
+.gitignore
+Dockerfile
+auth.db
+deploy_hf.sh
+main.py
+models.py
+requirements.txt
+space.yaml
+update_neon_schema.sql
 ```
 
 # auth\jwt.py
 ```python
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
-import os
+import logging
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBearer
+from sqlmodel import Session, select
+from database import get_session
+import sqlalchemy
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
 
-SECRET_KEY = os.getenv("BETTER_AUTH_SECRET")
-ALGORITHM = "HS256"
-
-
-def verify_token(token: str) -> str:
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("sub")
-        if not user_id:
-            raise Exception()
-        return user_id
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-        )
-
-
 def get_current_user_id(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    creds = Depends(security),
+    db: Session = Depends(get_session)
 ) -> str:
-    return verify_token(credentials.credentials)
+    token = creds.credentials
+
+    try:
+        # Check the 'session' table that Better Auth created
+        # Look for a session that matches the token and hasn't expired
+        result = db.execute(
+            sqlalchemy.text('SELECT "userId", "expiresAt" FROM "session" WHERE "token" = :t'),
+            {"t": token}
+        ).fetchone()
+
+        if not result:
+            logger.warning(f"Session not found for token: {token[:10]}...")
+            raise Exception("Session invalid")
+
+        user_id, expires_at = result
+
+        # Convert expires_at to datetime if it's a string
+        if isinstance(expires_at, str):
+            from datetime import datetime
+            expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+
+        # Check if expired
+        if expires_at < datetime.now():
+            logger.warning("Session expired")
+            raise Exception("Session expired")
+
+        logger.info(f"Authenticated user: {user_id}")
+        return str(user_id)
+
+    except Exception as e:
+        logger.error(f"Auth failed: {str(e)}")
+        raise HTTPException(status_code=401, detail="Not authenticated")
 ```
 
 # database\__init__.py
 ```python
+import logging
 from sqlmodel import Session, create_engine, SQLModel
 import os
+from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
+load_dotenv()
+
 
 # Database setup
 DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is missing")
+
+logger.info(f"Connecting to database: {DATABASE_URL.replace('@', '[@]').replace(':', '[:]') if DATABASE_URL else 'None'}")
+
 engine = create_engine(DATABASE_URL, echo=True)
 
 def create_db_and_tables():
     """Create database tables"""
-    SQLModel.metadata.create_all(engine)
+    logger.info("Creating database tables...")
+    try:
+        SQLModel.metadata.create_all(engine)
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.error(f"Error creating database tables: {str(e)}")
+        raise
 
 def get_session():
+    logger.debug("Opening database session")
     with Session(engine) as session:
-        yield session
+        try:
+            yield session
+        except Exception as e:
+            logger.error(f"Error in database session: {str(e)}")
+            raise
+        finally:
+            logger.debug("Closing database session")
 ```
 
 # main.py
 ```python
 import os
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes import tasks
 from database import create_db_and_tables
 from dotenv import load_dotenv
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -218,19 +145,28 @@ app.include_router(tasks.router)
 
 @app.on_event("startup")
 def startup():
-    create_db_and_tables()
+    logger.info("Starting up the application...")
+    try:
+        create_db_and_tables()
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.error(f"Error creating database tables: {e}")
+        raise
 
 @app.get("/")
 def read_root():
+    logger.info("Root endpoint accessed")
     return {"message": "Todo API running on Hugging Face Spaces!"}
 
 @app.get("/health")
 def health_check():
+    logger.info("Health check endpoint accessed")
     return {"status": "healthy"}
 
 # For Hugging Face Spaces
 if __name__ == "__main__":
     import uvicorn
+    logger.info("Starting Uvicorn server...")
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
 ```
 
@@ -262,8 +198,23 @@ class Task(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 ```
 
+# models\user.py
+```python
+from sqlmodel import SQLModel, Field
+from typing import Optional
+from datetime import datetime
+
+class User(SQLModel, table=True):
+    id: Optional[str] = Field(default=None, primary_key=True)
+    email: str = Field(unique=True, index=True)
+    name: str
+    password_hash: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+```
+
 # routes\tasks.py
 ```python
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from datetime import datetime
@@ -272,50 +223,74 @@ from schemas.tasks import TaskCreate, TaskUpdate, TaskResponse
 from database import get_session
 from auth.jwt import get_current_user_id
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api", tags=["tasks"])
 
 
-@router.get("/tasks", response_model=list[TaskResponse])
+@router.get("/tasks")
 def list_tasks(
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),
 ):
-    return session.exec(
-        select(Task).where(Task.user_id == user_id)
-    ).all()
+    logger.info(f"Fetching tasks for user_id: {user_id}")
+    try:
+        tasks = session.exec(
+            select(Task).where(Task.user_id == user_id)
+        ).all()
+        logger.info(f"Found {len(tasks)} tasks for user_id: {user_id}")
+        return {"data": tasks}
+    except Exception as e:
+        logger.error(f"Error fetching tasks for user_id {user_id}: {str(e)}")
+        raise
 
 
-@router.post("/tasks", response_model=TaskResponse)
+@router.post("/tasks")
 def create_task(
     task: TaskCreate,
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),
 ):
-    db_task = Task(**task.dict(), user_id=user_id)
-    session.add(db_task)
-    session.commit()
-    session.refresh(db_task)
-    return db_task
+    logger.info(f"Creating task for user_id: {user_id}, task data: {task}")
+    try:
+        db_task = Task(**task.dict(), user_id=user_id)
+        session.add(db_task)
+        session.commit()
+        session.refresh(db_task)
+        logger.info(f"Created task with id: {db_task.id} for user_id: {user_id}")
+        return {"data": db_task}
+    except Exception as e:
+        logger.error(f"Error creating task for user_id {user_id}: {str(e)}")
+        raise
 
 
-@router.put("/tasks/{task_id}", response_model=TaskResponse)
+@router.put("/tasks/{task_id}")
 def update_task(
     task_id: int,
     updates: TaskUpdate,
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),
 ):
-    task = session.get(Task, task_id)
-    if not task or task.user_id != user_id:
-        raise HTTPException(status_code=404)
+    logger.info(f"Updating task {task_id} for user_id: {user_id}, updates: {updates}")
+    try:
+        task = session.get(Task, task_id)
+        if not task or task.user_id != user_id:
+            logger.warning(f"Task {task_id} not found or user_id mismatch for user_id: {user_id}")
+            raise HTTPException(status_code=404)
 
-    for k, v in updates.dict(exclude_unset=True).items():
-        setattr(task, k, v)
+        for k, v in updates.dict(exclude_unset=True).items():
+            setattr(task, k, v)
 
-    task.updated_at = datetime.utcnow()
-    session.commit()
-    session.refresh(task)
-    return task
+        task.updated_at = datetime.utcnow()
+        session.commit()
+        session.refresh(task)
+        logger.info(f"Updated task {task_id} successfully")
+        return {"data": task}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating task {task_id} for user_id {user_id}: {str(e)}")
+        raise
 
 
 @router.delete("/tasks/{task_id}")
@@ -324,30 +299,48 @@ def delete_task(
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),
 ):
-    task = session.get(Task, task_id)
-    if not task or task.user_id != user_id:
-        raise HTTPException(status_code=404)
+    logger.info(f"Deleting task {task_id} for user_id: {user_id}")
+    try:
+        task = session.get(Task, task_id)
+        if not task or task.user_id != user_id:
+            logger.warning(f"Task {task_id} not found or user_id mismatch for user_id: {user_id}")
+            raise HTTPException(status_code=404)
 
-    session.delete(task)
-    session.commit()
-    return {"ok": True}
+        session.delete(task)
+        session.commit()
+        logger.info(f"Deleted task {task_id} successfully")
+        return {"data": {"ok": True}}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting task {task_id} for user_id {user_id}: {str(e)}")
+        raise
 
 
-@router.patch("/tasks/{task_id}/complete", response_model=TaskResponse)
+@router.patch("/tasks/{task_id}/complete")
 def toggle_complete(
     task_id: int,
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id),
 ):
-    task = session.get(Task, task_id)
-    if not task or task.user_id != user_id:
-        raise HTTPException(status_code=404)
+    logger.info(f"Toggling completion for task {task_id} for user_id: {user_id}")
+    try:
+        task = session.get(Task, task_id)
+        if not task or task.user_id != user_id:
+            logger.warning(f"Task {task_id} not found or user_id mismatch for user_id: {user_id}")
+            raise HTTPException(status_code=404)
 
-    task.completed = not task.completed
-    task.updated_at = datetime.utcnow()
-    session.commit()
-    session.refresh(task)
-    return task
+        task.completed = not task.completed
+        task.updated_at = datetime.utcnow()
+        session.commit()
+        session.refresh(task)
+        logger.info(f"Toggled completion for task {task_id}, now completed: {task.completed}")
+        return {"data": task}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error toggling completion for task {task_id} for user_id {user_id}: {str(e)}")
+        raise
 ```
 
 # schemas\tasks.py
@@ -392,3 +385,4 @@ class TaskResponse(TaskBase):
     created_at: datetime
     updated_at: datetime
 ```
+

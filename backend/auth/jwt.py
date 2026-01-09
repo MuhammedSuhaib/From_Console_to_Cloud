@@ -1,44 +1,43 @@
 import logging
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer
-from jose import jwt, JWTError
-import os
-import requests
+from sqlmodel import Session
+from database import get_session
+import sqlalchemy
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
-
 security = HTTPBearer()
 
-# This is where Next.js is running
-BETTER_AUTH_URL = os.getenv("BETTER_AUTH_URL", "http://localhost:3000")
-
-def get_current_user_id(creds = Depends(security)) -> str:
+def get_current_user_id(
+    creds = Depends(security), 
+    db: Session = Depends(get_session)
+) -> str:
     token = creds.credentials
+    
     try:
-        # 1. Get the Key ID (kid) from the token header
-        unverified_header = jwt.get_unverified_header(token)
-        kid = unverified_header.get('kid')
+        # We query the session table directly. Better Auth stores tokens as-is.
+        # userId and expiresAt are standard Better Auth columns.
+        query = sqlalchemy.text('SELECT "userId", "expiresAt" FROM "session" WHERE "token" = :t')
+        result = db.execute(query, {"t": token}).fetchone()
 
-        # 2. Fetch the public keys from the Next.js auth server
-        # In a real app, you would cache this so it's not slow!
-        jwks_url = f"{BETTER_AUTH_URL}/api/auth/.well-known/jwks.json"
-        res = requests.get(jwks_url)
-        jwks = res.json()
+        if not result:
+            logger.warning(f"Invalid session token attempted: {token[:10]}")
+            raise HTTPException(status_code=401, detail="Invalid session")
 
-        # 3. Find the correct key
-        key = next((k for k in jwks['keys'] if k['kid'] == kid), None)
-        if not key:
-            raise Exception("Public key not found")
+        user_id, expires_at = result
+        
+        # Check if the session has expired
+        # Ensure timezone comparison is consistent
+        if expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+            logger.warning(f"Session expired for user: {user_id}")
+            raise HTTPException(status_code=401, detail="Session expired")
 
-        # 4. Verify and decode
-        payload = jwt.decode(token, key, algorithms=['RS256'])
-
-        user_id = payload.get("sub")
-        if not user_id:
-            raise Exception("No user_id in token")
-
+        logger.info(f"User {user_id} authenticated successfully")
         return str(user_id)
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Auth failed: {str(e)}")
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        logger.error(f"Auth System Error: {str(e)}")
+        raise HTTPException(status_code=401, detail="Internal authentication failure")

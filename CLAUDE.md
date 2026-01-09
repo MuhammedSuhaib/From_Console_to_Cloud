@@ -47,7 +47,18 @@ When creating PHRs, follow these rules:
 2. Include proper model name (Qwen) and user name (get username from git config)
 3. Follow the correct naming convention: `NNNN-title.stage.prompt.md`
 4. Check that the ID number is not already used by another agent by using `list_directory` in the PHR folder
-5. Use proper YAML frontmatter with all required fields
+5. Use proper YAML front matter with all required fields
 6. Include proper links to related specifications
 7. List all relevant files in the `files:` section
 8. Fix grammar and spelling in the content
+
+
+## Key Learnings from PHR Creation
+- Model name must be "Claude Sonnet 4.5", not "Qwen"
+- User name is "giaic" as found in git config
+- Files are stored in `history/prompts/002-web-todo/` directory with sequential numbering
+- Stage labels should reflect the development phase (deployment, debugging, etc.)
+- Proper surface area assessment (small, medium, large) is important
+- Feature and branch information should be accurately reflected
+- Labels should categorize the work appropriately
+- Tests section should outline verification steps

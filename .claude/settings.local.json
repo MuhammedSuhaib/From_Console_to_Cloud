@@ -119,7 +119,10 @@
       "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\full-stack-todo\" /s)",
       "Bash(del \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\backend\\app.py\")",
       "Bash(powershell Remove-Item \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\backend\\app.py\")",
-      "Bash(pnpm add pg)"
+      "Bash(pnpm add pg)",
+      "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\history\\prompts\" /b)",
+      "Bash(dir \"D:\\VScode\\GitHub\\From_Console_to_Cloud\\history\\prompts\\002-web-todo\" /b)",
+      "Bash(echo \"\n\n## Key Learnings from PHR Creation\n- Model name must be \"\"Claude Sonnet 4.5\"\", not \"\"Qwen\"\"\n- User name is \"\"giaic\"\" as found in git config\n- Files are stored in \\`history/prompts/002-web-todo/\\` directory with sequential numbering\n- Stage labels should reflect the development phase (deployment, debugging, etc.)\n- Proper surface area assessment (small, medium, large) is important\n- Feature and branch information should be accurately reflected\n- Labels should categorize the work appropriately\n- Tests section should outline verification steps\")"
     ]
   }
 }

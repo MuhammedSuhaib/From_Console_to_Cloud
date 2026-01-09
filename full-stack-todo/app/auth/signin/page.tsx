@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { createAuthClient } from 'better-auth/client';
 
 const auth = createAuthClient({
@@ -14,43 +13,36 @@ export default function SignInPage() {
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const router = useRouter();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const res = await auth.signIn.email({
-      email,
-      password,
-    });
+    try {
+      const res = await auth.signIn.email({ email, password });
 
-    if (res.error) {
-      setError(res.error.message ?? 'Sign in failed');
-      setLoading(false);
-      return;
-    }
-
-    // Get the JWT specifically for the API
-    if (res.data) {
-      const jwtRes = await auth.getJwt();
-
-      if (jwtRes.data?.token) {
-        // Save the ACTUAL JWT to localStorage
-        localStorage.setItem('auth_token', jwtRes.data.token);
-        console.log("JWT Token saved for API calls");
-      } else {
-        // Fallback: If JWT plugin isn't returning a token, use session token
-        localStorage.setItem('auth_token', res.data.session.token);
+      if (res.error) {
+        setError(res.error.message ?? 'Sign in failed');
+        setLoading(false);
+        return;
       }
-    }
 
-    router.push('/dashboard');
+      const token = res.data?.token;
+
+      if (token) {
+        localStorage.setItem('auth_token', token);
+        window.location.href = '/dashboard';
+      }
+    } catch (err) {
+      console.error("Signin error:", err);
+      setLoading(false);
+      setError("An error occurred during sign in.");
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-black py-12 px-4 sm:px-6 lg:px-8 text-gray-900">
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
@@ -64,34 +56,22 @@ export default function SignInPage() {
             </div>
           )}
 
-          <div className="rounded-md shadow-sm -space-y-px">
+          <div className="rounded-md shadow-sm -space-y-px bg-white">
             <div>
-              <label htmlFor="email" className="sr-only">
-                Email address
-              </label>
               <input
-                id="email"
-                name="email"
                 type="email"
-                autoComplete="email"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div className="-mt-px">
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
+            <div>
               <input
-                id="password"
-                name="password"
                 type="password"
-                autoComplete="current-password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -99,25 +79,17 @@ export default function SignInPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="text-sm">
-              <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
-                Forgot your password?
-              </a>
-            </div>
-          </div>
-
           <div>
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
             >
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
         </form>
-        <div className="text-center text-sm text-gray-600">
+        <div className="text-center text-sm text-gray-400">
           Don't have an account?{' '}
           <Link href="/auth/signup" className="font-medium text-indigo-600 hover:text-indigo-500">
             Sign up

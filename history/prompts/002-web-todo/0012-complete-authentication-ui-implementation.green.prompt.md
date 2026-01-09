@@ -11,7 +11,7 @@ user: Qwen
 command: complete-auth-ui-implementation
 labels: [frontend, authentication, ui, components]
 links:
-  tasks: ../specs/002-web-todo/tasks.md
+  tasks: ../specs/002-web-todo/tasks.md 
 files_yaml:
   - frontend/full-stack-todo/app/auth/signin/page.tsx
   - frontend/full-stack-todo/app/auth/signup/page.tsx
