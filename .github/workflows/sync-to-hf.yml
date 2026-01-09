@@ -5,28 +5,45 @@ on:
     branches: [ master ]
     paths:
       - 'backend/**'
-      - '.github/workflows/sync-to-hf.yml'
 
 jobs:
   sync-to-hf:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
-        run: |
-          pip install huggingface_hub
-
       - name: Upload to Hugging Face
-        run: |
-          # We use a Python script here to ensure it works without PATH issues
-          python -c "from huggingface_hub import HfApi; api = HfApi(); api.upload_folder(folder_path='./backend', repo_id='${{ secrets.HF_SPACE_NAME }}', repo_type='space', token='${{ secrets.HF_TOKEN }}', commit_message='Update backend from GitHub')"
         env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
+          HF_TOKEN: ${{ secrets.TODO_TOKEN }}
+          HF_REPO: ${{ secrets.HF_SPACE_NAME }}
+        run: |
+          # Use uv to install the library and run the script in one go
+          uv run --with huggingface_hub python -c "
+          import os
+          from huggingface_hub import HfApi
+          
+          api = HfApi()
+          repo_id = os.getenv('HF_REPO')
+          token = os.getenv('HF_TOKEN')
+          
+          print(f'Syncing backend folder to {repo_id}...')
+          api.upload_folder(
+              folder_path='./backend',
+              repo_id=repo_id,
+              repo_type='space',
+              token=token,
+              commit_message='Deployment from GitHub Actions via uv'
+          )
+          print('Sync complete!')
+          "
