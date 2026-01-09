@@ -25,9 +25,8 @@ jobs:
 
       - name: Upload to Hugging Face
         run: |
-          # This command takes the contents of the 'backend' folder 
-          # and uploads them directly to the root of your Space.
-          huggingface-cli upload ${{ secrets.HF_SPACE_NAME }} ./backend . --repo-type space --token ${{ secrets.HF_TOKEN }} --commit-message "Update backend from GitHub"
+          # We use a Python script here to ensure it works without PATH issues
+          python -c "from huggingface_hub import HfApi; api = HfApi(); api.upload_folder(folder_path='./backend', repo_id='${{ secrets.HF_SPACE_NAME }}', repo_type='space', token='${{ secrets.HF_TOKEN }}', commit_message='Update backend from GitHub')"
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
