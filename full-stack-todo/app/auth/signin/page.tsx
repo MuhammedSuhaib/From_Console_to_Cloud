@@ -1,100 +1,50 @@
 'use client';
-
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { createAuthClient } from 'better-auth/client';
+import { KeyRound, Mail, Loader2 } from 'lucide-react';
 
-const auth = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || 'http://localhost:3000',
-});
+const auth = createAuthClient({ baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || 'http://localhost:3000' });
 
 export default function SignInPage() {
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
     try {
       const res = await auth.signIn.email({ email, password });
-
-      if (res.error) {
-        setError(res.error.message ?? 'Sign in failed');
-        setLoading(false);
-        return;
+      if (res.error) { setError(res.error.message ?? 'Login failed'); setLoading(false); return; }
+      if (res.data?.token) {
+        localStorage.setItem('auth_token', res.data.token);
+        window.location.replace('/dashboard');
       }
-
-      const token = res.data?.token;
-
-      if (token) {
-        localStorage.setItem('auth_token', token);
-        window.location.href = '/dashboard';
-      }
-    } catch (err) {
-      console.error("Signin error:", err);
-      setLoading(false);
-      setError("An error occurred during sign in.");
-    }
+    } catch (err) { setLoading(false); setError("System error. Try again."); }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black py-12 px-4 sm:px-6 lg:px-8 text-gray-900">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
-            Sign in to your account
-          </h2>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{error}</div>
-            </div>
-          )}
-
-          <div className="rounded-md shadow-sm -space-y-px bg-white">
-            <div>
-              <input
-                type="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <input
-                type="password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+    <div className="min-h-screen flex items-center justify-center bg-[#020617] px-6">
+      <div className="max-w-sm w-full space-y-8 bg-slate-900/50 p-8 rounded-3xl border border-slate-800">
+        <h2 className="text-3xl font-black text-white text-center">Welcome back</h2>
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          {error && <div className="p-3 bg-red-500/10 border border-red-500/50 text-red-500 rounded-xl text-xs font-bold text-center">{error}</div>}
+          <div className="relative">
+            <Mail className="absolute left-4 top-4 text-slate-500" size={18} />
+            <input type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-12 pr-5 py-4 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" />
           </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {loading ? 'Signing in...' : 'Sign in'}
-            </button>
+          <div className="relative">
+            <KeyRound className="absolute left-4 top-4 text-slate-500" size={18} />
+            <input type="password" required placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-12 pr-5 py-4 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" />
           </div>
+          <button type="submit" disabled={loading} className="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition-all disabled:opacity-50 flex justify-center items-center gap-2">
+            {loading ? <Loader2 className="animate-spin" size={20} /> : "Sign In"}
+          </button>
         </form>
-        <div className="text-center text-sm text-gray-400">
-          Don't have an account?{' '}
-          <Link href="/auth/signup" className="font-medium text-indigo-600 hover:text-indigo-500">
-            Sign up
-          </Link>
-        </div>
+        <p className="text-center text-sm text-slate-500 font-medium">New? <Link href="/auth/signup" className="text-indigo-400 font-bold">Create account</Link></p>
       </div>
     </div>
   );

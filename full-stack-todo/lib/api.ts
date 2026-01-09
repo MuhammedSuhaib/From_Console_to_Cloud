@@ -15,33 +15,37 @@ async function request<T>(path: string, options: RequestInit = {}) {
     },
   });
 
-  if (!res.ok) throw new Error("API error");
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || "API error");
+  }
+  
   const json = await res.json();
   return json.data as T;
 }
 
 export const api = {
-  getTasks: () => request("/api/tasks"),
+  getTasks: () => request<any[]>("/api/tasks"),
 
   createTask: (data: any) =>
-    request("/api/tasks", {
+    request<any>("/api/tasks", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
   updateTask: (id: number, data: any) =>
-    request(`/api/tasks/${id}`, {
+    request<any>(`/api/tasks/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
 
   deleteTask: (id: number) =>
-    request(`/api/tasks/${id}`, {
+    request<any>(`/api/tasks/${id}`, {
       method: "DELETE",
     }),
 
   toggleComplete: (id: number) =>
-    request(`/api/tasks/${id}/complete`, {
+    request<any>(`/api/tasks/${id}/complete`, {
       method: "PATCH",
     }),
 };

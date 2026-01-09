@@ -44,7 +44,7 @@ Specifications are organized in `specs/`:
 ## PHR (Prompt History Record) Guidelines
 When creating PHRs, follow these rules:
 1. Use the standard template from `.specify/templates/phr-template.prompt.md`
-2. Include proper model name (Qwen) and user name (get username from git config)
+2. Include proper model name (Claude Sonnet 4.5) and user name (get username from git config)
 3. Follow the correct naming convention: `NNNN-title.stage.prompt.md`
 4. Check that the ID number is not already used by another agent by using `list_directory` in the PHR folder
 5. Use proper YAML front matter with all required fields
