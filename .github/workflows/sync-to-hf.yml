@@ -13,8 +13,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -25,27 +23,11 @@ jobs:
         run: |
           pip install huggingface_hub
 
-      - name: Upload backend to Hugging Face Space
+      - name: Upload to Hugging Face
         run: |
-          # Go into the backend folder
-          cd backend
-          
-          # Initialize a git repo inside the backend folder to push only its contents
-          git init
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Add the HF remote. Notice there is no /backend at the end of the URL
-          git remote add hf https://oauth2:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/${{ secrets.HF_SPACE_NAME }}
-          
-          # Force the current branch to be named 'main' (HF Spaces default)
-          git checkout -b main
-          
-          git add .
-          git commit -m "Update backend from GitHub"
-          
-          # Push to the 'main' branch of the HF Space
-          git push -f hf main
+          # This command takes the contents of the 'backend' folder 
+          # and uploads them directly to the root of your Space.
+          huggingface-cli upload ${{ secrets.HF_SPACE_NAME }} ./backend . --repo-type space --token ${{ secrets.HF_TOKEN }} --commit-message "Update backend from GitHub"
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
