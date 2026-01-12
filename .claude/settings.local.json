@@ -126,7 +126,8 @@
       "Bash(dir history /s)",
       "Bash(dir historyprompts /s)",
       "Bash(git commit -m \"$(cat <<''EOF''\nAdd UI enhancements with edit feature for todo items\n\n- Implement edit functionality in dashboard allowing users to modify task titles and descriptions\n- Add proper state management for edit/view modes with editingTodo state\n- Create startEditing, cancelEditing, and saveEdit functions\n- Update UI with conditional rendering for edit forms\n- Verify integration with existing updateTask API endpoint\n- Create PHR documenting the UI enhancements\n- Update CLAUDE.md with correct model name in PHR guidelines\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(git push origin master)"
+      "Bash(git push origin master)",
+      "Bash(ls -la *.md)"
     ]
   }
 }
