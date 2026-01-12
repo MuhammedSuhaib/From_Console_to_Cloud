@@ -102,7 +102,7 @@
 - [x] Write unit tests for backend API endpoints
 - [x] Write unit tests for authentication middleware
 - [x] Write unit tests for database models
-- [ ] Write unit tests for frontend components
+- [x] Write unit tests for frontend components
 
 ### 6.2 Integration Tests
 - [x] Test API endpoints with authenticated requests
