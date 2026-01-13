@@ -112,6 +112,33 @@ Todo:
   - reminders: list of reminder configs
   - assigned_to: user/agent reference
   - parent_id: for subtasks
+  - conversation_id: reference for chatbot interactions
+```
+
+**Phase III Database Models**:
+```
+Task:
+  - user_id: string (foreign key for user association)
+  - id: unique identifier
+  - title: short description
+  - description: detailed text (optional)
+  - completed: boolean status
+  - created_at: timestamp
+  - updated_at: timestamp
+
+Conversation:
+  - user_id: string (foreign key for user association)
+  - id: unique identifier
+  - created_at: timestamp
+  - updated_at: timestamp
+
+Message:
+  - user_id: string (foreign key for user association)
+  - id: unique identifier
+  - conversation_id: reference to Conversation
+  - role: string (user/assistant)
+  - content: string (message content)
+  - created_at: timestamp
 ```
 
 **Invariants**:
@@ -145,6 +172,10 @@ Todo:
 - JWT token verification middleware for authentication
 - User isolation - each user only accesses their own data
 - REST API endpoints following standard conventions
+- For Phase III: OpenAI Agents SDK for AI logic
+- For Phase III: Official MCP SDK for MCP server implementation
+- For Phase III: Stateless server architecture with database-persisted conversation state
+- For Phase III: MCP tools must be stateless and store state in the database
 
 **Forbidden**:
 - Mixing business logic with I/O operations
@@ -152,6 +183,9 @@ Todo:
 - Circular dependencies between modules
 - Undocumented magic numbers or strings
 - Database queries without proper user filtering in authenticated endpoints
+- For Phase III: Storing conversation state in server memory instead of database
+- For Phase III: MCP tools with embedded state instead of database persistence
+- For Phase III: Violating user isolation in conversation and message data
 
 ### Next.js Frontend Standards (Phase II+)
 
@@ -164,6 +198,9 @@ Todo:
 - Better Auth integration for user authentication and session management
 - JWT token handling for API communication
 - API client properly configured to attach JWT tokens to requests
+- For Phase III: OpenAI ChatKit integration for conversational interface
+- For Phase III: NEXT_PUBLIC_OPENAI_DOMAIN_KEY environment variable for domain allowlist configuration
+- For Phase III: Proper domain allowlist configuration for OpenAI ChatKit security
 
 **Forbidden**:
 - Direct database access from frontend
@@ -171,6 +208,8 @@ Todo:
 - Inline styles (use CSS modules or Tailwind)
 - Unvalidated user input
 - Storing sensitive authentication data in local storage without proper security measures
+- For Phase III: Using ChatKit without proper domain allowlist configuration
+- For Phase III: Storing OpenAI domain keys in client-side accessible locations without proper security
 
 ### AI Agent Standards (Phase III+)
 
@@ -180,11 +219,19 @@ Todo:
 - Confirmation prompts for destructive actions
 - All agent logic must be spec-driven
 - Comprehensive intent recognition testing
+- Use OpenAI Agents SDK for AI logic
+- MCP (Model Context Protocol) server with Official MCP SDK exposing task operations as tools
+- Stateful conversations persisted to database with stateless server architecture
+- AI agents must use MCP tools to manage tasks with database-stored state
+- MCP tools must be stateless and store state in the database
+- Support for OpenAI ChatKit for frontend interface
 
 **Forbidden**:
 - Agents creating undocumented side effects
 - Bypassing validation rules
 - Silent failures on misunderstood commands
+- Storing conversation state in server memory instead of database
+- MCP tools with embedded state instead of database persistence
 
 ### Cloud & Kubernetes Standards (Phase IV+)
 
@@ -407,6 +454,48 @@ GET    /api/{user_id}/tasks/{id}  # Get specific task
 PUT    /api/{user_id}/tasks/{id}  # Update a task
 DELETE /api/{user_id}/tasks/{id}  # Delete a task
 PATCH  /api/{user_id}/tasks/{id}/complete  # Toggle completion
+POST   /api/{user_id}/chat        # Send message & get AI response (Phase III)
+```
+
+**Phase III Chat API Endpoint**:
+```
+POST /api/{user_id}/chat
+  Description: Send message & get AI response
+  Request Body:
+    - conversation_id: integer (optional, creates new if not provided)
+    - message: string (required, user's natural language message)
+  Response:
+    - conversation_id: integer (the conversation ID)
+    - response: string (AI assistant's response)
+    - tool_calls: array (list of MCP tools invoked)
+```
+
+**Phase III MCP Tools Specification**:
+```
+Tool: add_task
+  Purpose: Create a new task
+  Parameters: user_id (string, required), title (string, required), description (string, optional)
+  Returns: task_id, status, title
+
+Tool: list_tasks
+  Purpose: Retrieve tasks from the list
+  Parameters: user_id (string, required), status (string, optional: "all", "pending", "completed")
+  Returns: Array of task objects
+
+Tool: complete_task
+  Purpose: Mark a task as complete
+  Parameters: user_id (string, required), task_id (integer, required)
+  Returns: task_id, status, title
+
+Tool: delete_task
+  Purpose: Remove a task from the list
+  Parameters: user_id (string, required), task_id (integer, required)
+  Returns: task_id, status, title
+
+Tool: update_task
+  Purpose: Modify task title or description
+  Parameters: user_id (string, required), task_id (integer, required), title (string, optional), description (string, optional)
+  Returns: task_id, status, title
 ```
 
 **Authentication Requirements**:
@@ -452,11 +541,17 @@ PATCH  /api/{user_id}/tasks/{id}/complete  # Toggle completion
 - Task CRUD operations with user ownership
 - API endpoints secured with JWT authentication
 
-**Phase III**: AI-Powered
-- Natural language interface
-- AI agent integration
+**Phase III**: AI-Powered Todo Chatbot with MCP Architecture
+- Natural language interface using OpenAI ChatKit
+- AI agent integration with OpenAI Agents SDK
+- MCP (Model Context Protocol) server architecture with Official MCP SDK
+- Conversational task management through natural language commands
+- Stateless chat endpoint with database-persisted conversation state
+- MCP tools exposing task operations (add, list, complete, delete, update tasks)
 - Smart suggestions and automation
 - Voice/chat interfaces
+- Database schema: Task, Conversation, and Message models with user isolation
+- Agentic Dev Stack workflow: Spec → Plan → Tasks → Implement via Claude Code
 
 **Phase IV**: Cloud-Native Distributed
 - Microservices architecture
@@ -681,6 +776,6 @@ This Constitution represents the governing law of **The Evolution of Todo** proj
 
 ---
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Ratified**: 2025-12-07
-**Last Amended**: 2025-12-29
+**Last Amended**: 2026-01-13
