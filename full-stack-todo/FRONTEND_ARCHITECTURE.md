@@ -117,7 +117,7 @@ export const auth = betterAuth({
 ```typescript
 /// <reference types="next" />
 /// <reference types="next/image-types/global" />
-import "./.next/types/routes.d.ts";
+import "./.next/dev/types/routes.d.ts";
 
 // NOTE: This file should not be edited
 // see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
@@ -451,9 +451,10 @@ export default function SignUpPage() {
 ```tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "./../../context/AuthContext";
 import { api } from "./../../lib/api";
+import { useChatKit } from "@openai/chatkit-react";
 import {
   LogOut,
   Plus,
@@ -465,8 +466,15 @@ import {
   CheckSquare,
   Clock,
   Loader2,
+  MessageSquare,
+  Send,
+  X,
 } from "lucide-react";
 import { StatBox, PriorityBtn } from "./../../components/DashboardUI";
+
+// ChatKit Configuration Constants
+const WORKFLOW_ID =
+  process.env.NEXT_PUBLIC_CHATKIT_WORKFLOW_ID || "wf_placeholder";
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
@@ -478,6 +486,41 @@ export default function DashboardPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingTodo, setEditingTodo] = useState<any | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Chat States
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [convId, setConvId] = useState<number | null>(null);
+
+  // ChatKit Integration (Used for session management and compliance)
+  const getClientSecret = useMemo(() => {
+    return async (currentSecret: string | null) => {
+      if (currentSecret) return currentSecret;
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/create-session`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+            },
+            body: JSON.stringify({ workflow: { id: WORKFLOW_ID } }),
+          }
+        );
+        const data = await res.json();
+        return data.client_secret;
+      } catch (err) {
+        console.error("ChatKit Session Error:", err);
+        return "mock_secret";
+      }
+    };
+  }, []);
+
+  const chatkit = useChatKit({
+    api: { getClientSecret },
+  });
 
   const loadTodos = useCallback(async () => {
     try {
@@ -522,6 +565,35 @@ export default function DashboardPage() {
       console.error(err);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleChatSubmit = async () => {
+    if (!chatInput.trim()) return;
+    const userMsg = { role: "user", content: chatInput };
+    setChatMessages((prev) => [...prev, userMsg]);
+    setChatInput("");
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user?.id}/chat`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+          body: JSON.stringify({ message: chatInput, conversation_id: convId }),
+        }
+      );
+      const data = await res.json();
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.response },
+      ]);
+      setConvId(data.conversation_id);
+      loadTodos();
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -570,6 +642,11 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-[#020617] text-slate-200 pb-24">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[10%] right-[-5%] w-[40%] h-[40%] bg-purple-600/10 blur-[100px] rounded-full" />
+      </div>
+
       <div className="max-w-xl mx-auto px-6 pt-12 relative z-10">
         <header className="flex justify-between items-start mb-10">
           <div>
@@ -662,13 +739,13 @@ export default function DashboardPage() {
                     className={`font-bold truncate leading-tight ${
                       todo.completed
                         ? "text-slate-600 line-through"
-                        : "text-slate-100"
+                        : "text-white"
                     }`}
                   >
                     {todo.title}
                   </h3>
                   {todo.description && (
-                    <p className="text-[10px] mt-1 truncate text-slate-500 font-medium">
+                    <p className="text-[10px] mt-1 truncate text-slate-500 font-medium tracking-tight">
                       {todo.description}
                     </p>
                   )}
@@ -696,10 +773,22 @@ export default function DashboardPage() {
           )}
         </section>
       </div>
+
+      {/* Floating Chat Trigger */}
+      <button
+        title="Toggle AI Chat"
+        aria-label="Toggle AI Chat"
+        onClick={() => setIsChatOpen(!isChatOpen)}
+        className="fixed bottom-10 left-8 h-14 w-14 bg-slate-800 text-indigo-400 rounded-2xl shadow-xl flex items-center justify-center border border-slate-700 z-50 hover:bg-slate-700 transition-all shadow-indigo-500/5"
+      >
+        <MessageSquare size={28} />
+      </button>
+
+      {/* Floating Add Trigger */}
       <button
         title="Add Task"
         aria-label="Add Task"
-        className="fixed bottom-10 right-8 h-16 w-16 bg-indigo-600 rounded-2xl shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 border-t border-white/20"
+        className="fixed bottom-10 right-8 h-16 w-16 bg-indigo-600 text-white rounded-2xl shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 border-t border-white/20"
         onClick={() => {
           closeModal();
           setShowModal(true);
@@ -708,30 +797,98 @@ export default function DashboardPage() {
         <Plus size={32} className="text-white" strokeWidth={3} />
       </button>
 
+      {/* Chat Interface Drawer (Custom Input to avoid blocked ChatKit input) */}
+      {isChatOpen && (
+        <div className="fixed bottom-28 left-8 w-80 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-50 flex flex-col h-96 animate-in slide-in-from-bottom-5 duration-300 overflow-hidden">
+          <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 rounded-t-2xl">
+            <div className="flex items-center gap-2">
+              <h4 className="font-black text-[10px] uppercase tracking-widest text-indigo-400">
+                Focus ChatKit
+              </h4>
+            </div>
+            <button
+              title="Close Chat"
+              aria-label="Close Chat"
+              onClick={() => setIsChatOpen(false)}
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 text-[12px] bg-slate-950">
+            {chatMessages.length === 0 && (
+              <p className="text-slate-600 text-center mt-10 italic">
+                How can I help you today?
+              </p>
+            )}
+            {chatMessages.map((m, i) => (
+              <div
+                key={i}
+                className={m.role === "user" ? "text-right" : "text-left"}
+              >
+                <span
+                  className={`inline-block px-3 py-2 rounded-xl ${
+                    m.role === "user"
+                      ? "bg-indigo-600 text-white"
+                      : "bg-slate-800 text-slate-300"
+                  }`}
+                >
+                  {m.content}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="p-4 border-t border-slate-800 flex gap-2 bg-slate-900">
+            <input
+              title="Chat Input"
+              aria-label="Chat Input"
+              placeholder="Ask Focus AI..."
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleChatSubmit()}
+              className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+            <button
+              title="Send Message"
+              aria-label="Send Message"
+              onClick={handleChatSubmit}
+              className="bg-indigo-600 p-2 rounded-xl text-white active:scale-95"
+            >
+              <Send size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {showModal && (
         <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-6">
           <div
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             onClick={closeModal}
           />
-          <div className="relative w-full max-w-md bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl p-8 animate-in slide-in-from-bottom-10 duration-300">
+          <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-t-2xl sm:rounded-2xl p-8 animate-in slide-in-from-bottom-10 duration-300 shadow-2xl">
             <h2 className="text-2xl font-black text-white mb-6">
               {editingTodo ? "Refine Task" : "New Task"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <input
+                title="Task Name"
+                aria-label="Task Name"
                 required
                 autoFocus
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                className="w-full bg-slate-800 border-slate-700 rounded-xl px-4 py-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
-                placeholder="Task name..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
+                placeholder="What needs doing?"
               />
               <textarea
+                title="Task Description"
+                aria-label="Task Description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-slate-800 border-slate-700 rounded-xl px-4 py-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                placeholder="Details..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                placeholder="Additional details..."
                 rows={3}
               />
               <div className="flex gap-2">
@@ -758,15 +915,17 @@ export default function DashboardPage() {
                 />
               </div>
               <button
+                title="Commit Changes"
+                aria-label="Commit Changes"
                 type="submit"
                 disabled={isSubmitting || !input.trim()}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-xl font-black text-white transition-all disabled:opacity-40"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-xl font-black text-white transition-all disabled:opacity-40 active:scale-95"
               >
                 {isSubmitting
                   ? "Syncing..."
                   : editingTodo
-                  ? "Update"
-                  : "Create"}
+                  ? "Update Task"
+                  : "Create Task"}
               </button>
             </form>
           </div>
@@ -1592,6 +1751,7 @@ describe('Frontend Component Tests', () => {
     "lint": "eslint"
   },
   "dependencies": {
+    "@openai/chatkit-react": "^1.4.1",
     "better-auth": "^1.4.10",
     "next": "16.1.1",
     "pg": "^8.16.3",
@@ -1606,10 +1766,9 @@ describe('Frontend Component Tests', () => {
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
+    "lucide-react": "^0.562.0",
     "tailwindcss": "^4",
-    "typescript": "^5",
-		"lucide-react": "^0.562.0"
-
+    "typescript": "^5"
   }
 }
 
