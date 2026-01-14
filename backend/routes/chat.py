@@ -3,7 +3,7 @@ from sqlmodel import Session, select
 from models import Conversation, Message, UserContext
 from database import get_session
 from auth.jwt import get_current_user_id
-from backend.simple_agents.todo_agent import Todo_Agent
+from backend.todo_agent.todo_agent import Todo_Agent
 from agents import Runner, set_tracing_export_api_key, trace
 import os
 from typing import Optional
