@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "./../../context/AuthContext";
 import { api } from "./../../lib/api";
 import { useChatKit } from "@openai/chatkit-react";
@@ -18,6 +18,9 @@ import {
   MessageSquare,
   Send,
   X,
+  Zap,
+  History,
+  Trash,
 } from "lucide-react";
 import { StatBox, PriorityBtn } from "./../../components/DashboardUI";
 
@@ -44,7 +47,17 @@ export default function DashboardPage() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
 
-  // ChatKit Integration (Used for session management and compliance)
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    if (isChatOpen) scrollToBottom();
+  }, [chatMessages, toolStatus, isChatOpen]);
+
+  // ChatKit Integration
   const getClientSecret = useMemo(() => {
     return async (currentSecret: string | null) => {
       if (currentSecret) return currentSecret;
@@ -88,7 +101,7 @@ export default function DashboardPage() {
     loadTodos();
   }, [loadTodos]);
 
-  // Fetch Chat History when drawer opens
+  // Fetch Chat History
   const loadChatHistory = useCallback(async () => {
     if (!user?.id) return;
     try {
@@ -106,6 +119,23 @@ export default function DashboardPage() {
       console.error("Failed to load chat history:", err);
     }
   }, [user?.id]);
+
+  // Delete Chat History
+  const deleteChatHistory = async () => {
+    if (!confirm("Wipe all memory of this conversation?")) return;
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user?.id}/history`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+      });
+      setChatMessages([]);
+      setConvId(null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // Trigger history load when chat is toggled open
   useEffect(() => {
@@ -184,7 +214,7 @@ export default function DashboardPage() {
             const data = JSON.parse(trimmedLine.slice(6));
 
             if (data.tool) {
-              setToolStatus(`AI is calling \n  ${data.tool}...`);
+              setToolStatus(`[SYSTEM] EXECUTING: ${data.tool}...`);
             }
 
             if (data.chunk) {
@@ -268,17 +298,17 @@ export default function DashboardPage() {
     );
 
   return (
-    <main className="min-h-screen bg-[#020617] text-slate-200 pb-24">
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[10%] right-[-5%] w-[40%] h-[40%] bg-purple-600/10 blur-[100px] rounded-full" />
+    <main className="min-h-screen bg-[#020617] text-slate-200 pb-20 relative overflow-x-hidden scrollbar-none">
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-[-5%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/5 blur-[100px] rounded-full" />
+        <div className="absolute bottom-[5%] right-[-5%] w-[30%] h-[30%] bg-purple-600/5 blur-[80px] rounded-full" />
       </div>
 
-      <div className="max-w-xl mx-auto px-6 pt-12 relative z-10">
-        <header className="flex justify-between items-start mb-10">
+      <div className="max-w-xl mx-auto px-4 sm:px-6 pt-10 relative z-10">
+        <header className="flex justify-between items-start mb-6">
           <div>
-            <h1 className="text-3xl font-black text-white mb-1 tracking-tight">
-              Focus
+            <h1 className="text-xl sm:text-3xl font-black text-white tracking-tighter">
+              MICRO TASK AI
             </h1>
             <p className="text-slate-500 text-xs font-bold tracking-widest">
               {user?.email}
@@ -294,7 +324,19 @@ export default function DashboardPage() {
           </button>
         </header>
 
-        <div className="grid grid-cols-3 gap-4 mb-12">
+        <section className="mb-6 p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-xl">
+          <div className="flex items-center gap-2 mb-1">
+            <Zap size={14} className="text-indigo-400" />
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-indigo-300">
+              The Micro Task Method
+            </h2>
+          </div>
+          <p className="text-[11px] text-slate-400 leading-snug">
+            Atomic segments drive maximum velocity. Use the AI to decompose complex goals into 15-minute actionable steps.
+          </p>
+        </section>
+
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-8">
           <StatBox
             label="Total"
             val={todos.length}
@@ -315,13 +357,13 @@ export default function DashboardPage() {
           />
         </div>
 
-        <section className="space-y-4">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-6">
+        <section className="space-y-2">
+          <h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500 mb-3 px-1">
             Current Queue
           </h2>
           {todos.length === 0 ? (
-            <div className="text-center py-20 bg-slate-900/20 rounded-2xl border border-dashed border-slate-800">
-              <p className="text-slate-600 font-bold italic">
+            <div className="text-center py-12 bg-slate-900/10 rounded-xl border border-dashed border-slate-800">
+              <p className="text-slate-600 font-bold italic text-xs">
                 You're all caught up! ☕
               </p>
             </div>
@@ -329,14 +371,14 @@ export default function DashboardPage() {
             todos.map((todo) => (
               <div
                 key={todo.id}
-                className={`group relative flex items-center p-5 rounded-2xl transition-all border backdrop-blur-md ${
+                className={`group relative flex items-center p-3 sm:p-4 rounded-xl transition-all border backdrop-blur-md ${
                   todo.completed
-                    ? "bg-slate-900/30 border-slate-800/40 opacity-60"
-                    : "bg-slate-800/40 border-slate-700/50 hover:border-indigo-500/40 shadow-xl"
+                    ? "bg-slate-900/20 border-slate-800/30 opacity-50"
+                    : "bg-slate-800/30 border-slate-700/40 hover:border-indigo-500/30"
                 }`}
               >
                 <div
-                  className={`absolute left-0 top-0 bottom-0 w-1 ${
+                  className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${
                     todo.priority === "high"
                       ? "bg-red-500"
                       : todo.priority === "medium"
@@ -348,24 +390,24 @@ export default function DashboardPage() {
                   title="Toggle Complete"
                   aria-label="Toggle Complete"
                   onClick={() => toggleTodo(todo.id)}
-                  className={`h-6 w-6 shrink-0 transition-all ${
+                  className={`h-5 w-5 shrink-0 transition-all ${
                     todo.completed
                       ? "text-indigo-500"
                       : "text-slate-600 hover:text-indigo-400"
                   }`}
                 >
                   {todo.completed ? (
-                    <CheckCircle2 size={24} />
+                    <CheckCircle2 size={20} />
                   ) : (
-                    <Circle size={24} />
+                    <Circle size={20} />
                   )}
                 </button>
                 <div
-                  className="flex-1 ml-4 min-w-0 cursor-pointer"
+                  className="flex-1 ml-3 min-w-0 cursor-pointer"
                   onClick={() => openEditModal(todo)}
                 >
                   <h3
-                    className={`font-bold truncate leading-tight ${
+                    className={`font-bold truncate text-sm leading-tight ${
                       todo.completed
                         ? "text-slate-600 line-through"
                         : "text-white"
@@ -381,20 +423,20 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
-                    title="openEditModal"
-                    aria-label="openEditModal"
+                    title="Edit Task"
+                    aria-label="Edit Task"
                     onClick={() => openEditModal(todo)}
-                    className="p-2 text-slate-500 hover:text-indigo-400"
+                    className="p-1.5 text-slate-500 hover:text-indigo-400"
                   >
-                    <Edit3 size={18} />
+                    <Edit3 size={16} />
                   </button>
                   <button
-                    title="deleteTodo"
-                    aria-label="deleteTodo"
+                    title="Delete Task"
+                    aria-label="Delete Task"
                     onClick={() => deleteTodo(todo.id)}
-                    className="p-2 text-slate-500 hover:text-red-500"
+                    className="p-1.5 text-slate-500 hover:text-red-500"
                   >
-                    <Trash2 size={18} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
@@ -426,32 +468,45 @@ export default function DashboardPage() {
         <Plus size={32} className="text-white" strokeWidth={3} />
       </button>
 
-      {/* Chat Interface Drawer (Custom Input to avoid blocked ChatKit input) */}
+      {/* Chat Interface Drawer */}
       {isChatOpen && (
-        <div className="fixed bottom-28 left-8 w-80 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-50 flex flex-col h-96 animate-in slide-in-from-bottom-5 duration-300 overflow-hidden">
-          <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 rounded-t-2xl">
-            <div className="flex items-center gap-2">
-              <h4 className="font-black text-[10px] uppercase tracking-widest text-indigo-400">
-                Focus AI
-              </h4>
+        <div className="fixed inset-0 sm:inset-auto sm:bottom-20 sm:left-8 sm:w-80 bg-slate-900 border-0 sm:border sm:border-slate-800 sm:rounded-xl shadow-2xl z-50 flex flex-col sm:h-[450px] h-full animate-in slide-in-from-bottom-2 overflow-hidden">
+          <div className="p-4 sm:p-3 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+            <h4 className="font-black text-[10px] uppercase tracking-widest text-indigo-400">
+              Micro Task AI
+            </h4>
+            <div className="flex gap-3 sm:gap-2">
+              <button
+                title="Refresh History"
+                aria-label="Refresh History"
+                onClick={loadChatHistory}
+                className="text-slate-500 hover:text-white"
+              >
+                <History size={16} />
+              </button>
+              <button
+                title="Clear History"
+                aria-label="Clear History"
+                onClick={deleteChatHistory}
+                className="text-slate-500 hover:text-red-500"
+              >
+                <Trash size={16} />
+              </button>
+              <button
+                title="Close"
+                aria-label="Close"
+                onClick={() => setIsChatOpen(false)}
+                className="text-slate-500 hover:text-white"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <button
-              title="Close Chat"
-              aria-label="Close Chat"
-              onClick={() => setIsChatOpen(false)}
-            >
-              <X size={16} />
-            </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 text-[12px] bg-slate-950">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 text-[12px] bg-slate-950 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {chatMessages.length === 0 && (
-              <div className="p-3 bg-slate-800/40 rounded-xl text-slate-300">
-                Hello{" "}
-                <span style={{ color: "#00ff41", fontWeight: "bold" }}>
-                  {user?.name || "User"}
-                </span>
-                ! I'm your AI assistant for the Focus Todo App.
+              <div className="p-4 bg-slate-800/40 rounded-xl text-slate-300 leading-relaxed">
+                Hello <span className="text-[#00ff41] font-bold">{user?.name || 'User'}</span>! I'm your Micro Task assistant. How can I help you today?
               </div>
             )}
             {chatMessages.map((m, i) => (
@@ -460,49 +515,44 @@ export default function DashboardPage() {
                 className={m.role === "user" ? "text-right" : "text-left"}
               >
                 <span
-                  className={`inline-block px-3 py-2 rounded-xl ${
+                  className={`inline-block px-4 py-2.5 rounded-xl max-w-[85%] ${
                     m.role === "user"
-                      ? "bg-indigo-600 text-white"
-                      : "bg-slate-800 text-slate-300"
+                      ? "bg-indigo-600/20 text-indigo-100 border border-indigo-500/20"
+                      : "bg-slate-800/40 text-slate-200"
                   }`}
                 >
                   {m.content}
                 </span>
               </div>
             ))}
-            {/* Thinking Indicator */}
             {isChatLoading && !toolStatus && (
-              <div className="ml-2 text-[#6366f1] animate-pulse text-sm">
-                &gt; System thinking...
+              <div className="text-indigo-500 font-mono text-[10px] animate-pulse ml-1">
+                &gt; ANALYZING INTENT...
               </div>
             )}
-
-            {/* Tool Status - Shows whenever a tool is active, independent of loading state */}
             {toolStatus && (
-              <div
-                className="ml-2 text-[#00ff41] animate-pulse text-sm"
-                style={{ whiteSpace: "pre-wrap" }}
-              >
+              <div className="text-[#00ff41] font-mono text-[10px] animate-pulse ml-1 whitespace-pre-wrap">
                 {toolStatus}
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
 
-          <div className="p-4 border-t border-slate-800 flex gap-2 bg-slate-900">
+          <div className="p-4 sm:p-3 border-t border-slate-800 flex gap-2 bg-slate-900">
             <input
               title="Chat Input"
               aria-label="Chat Input"
-              placeholder="Ask Focus AI..."
+              placeholder="Ask AI to add a task..."
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleChatSubmit()}
-              className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-indigo-500"
+              className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 sm:py-1.5 text-sm sm:text-xs text-white outline-none focus:ring-1 focus:ring-indigo-500"
             />
             <button
               title="Send Message"
               aria-label="Send Message"
               onClick={handleChatSubmit}
-              className="bg-indigo-600 p-2 rounded-xl text-white active:scale-95"
+              className="bg-indigo-600 px-4 rounded-lg text-white active:scale-95 transition-transform"
             >
               <Send size={14} />
             </button>
@@ -511,16 +561,16 @@ export default function DashboardPage() {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-6">
+        <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             onClick={closeModal}
           />
-          <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-t-2xl sm:rounded-2xl p-8 animate-in slide-in-from-bottom-10 duration-300 shadow-2xl">
-            <h2 className="text-2xl font-black text-white mb-6">
-              {editingTodo ? "Refine Task" : "New Task"}
+          <div className="relative w-full max-w-sm bg-slate-900 border border-slate-800 rounded-t-xl sm:rounded-xl p-6 animate-in slide-in-from-bottom-4 duration-300 shadow-2xl">
+            <h2 className="text-lg font-black text-white mb-4 uppercase tracking-tighter">
+              {editingTodo ? "Edit Segment" : "New Segment"}
             </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3">
               <input
                 title="Task Name"
                 aria-label="Task Name"
@@ -528,7 +578,7 @@ export default function DashboardPage() {
                 autoFocus
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-1 focus:ring-indigo-500 outline-none font-bold text-sm"
                 placeholder="What needs doing?"
               />
               <textarea
@@ -536,20 +586,20 @@ export default function DashboardPage() {
                 aria-label="Task Description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                placeholder="Additional details..."
-                rows={3}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-1 focus:ring-indigo-500 outline-none text-xs"
+                placeholder="Optional details..."
+                rows={2}
               />
               <div className="flex gap-2">
                 <PriorityBtn
-                  label="Chill"
+                  label="Low"
                   current={priority}
                   set={setPriority}
                   val="low"
                   color="bg-emerald-500"
                 />
                 <PriorityBtn
-                  label="Normal"
+                  label="Mid"
                   current={priority}
                   set={setPriority}
                   val="medium"
@@ -564,11 +614,11 @@ export default function DashboardPage() {
                 />
               </div>
               <button
-                title="Commit Changes"
-                aria-label="Commit Changes"
+                title="Save"
+                aria-label="Save"
                 type="submit"
                 disabled={isSubmitting || !input.trim()}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-xl font-black text-white transition-all disabled:opacity-40 active:scale-95"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-lg font-black text-white transition-all disabled:opacity-40 text-xs uppercase tracking-widest"
               >
                 {isSubmitting
                   ? "Syncing..."
@@ -583,4 +633,3 @@ export default function DashboardPage() {
     </main>
   );
 }
-
