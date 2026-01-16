@@ -5,9 +5,9 @@ pydantic
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
-better-auth
 python-dotenv
 asyncpg
 alembic
 psycopg2-binary
 requests
+openai-agents
