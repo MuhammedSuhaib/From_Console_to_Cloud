@@ -74,7 +74,7 @@ export default function DashboardPage() {
               Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
             },
             body: JSON.stringify({ workflow: { id: WORKFLOW_ID } }),
-          }
+          },
         );
         const data = await res.json();
         return data.client_secret;
@@ -115,7 +115,7 @@ export default function DashboardPage() {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
           },
-        }
+        },
       );
       const data = await res.json();
       if (data.conversations) setAllConversations(data.conversations);
@@ -136,7 +136,7 @@ export default function DashboardPage() {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
           },
-        }
+        },
       );
       const data = await res.json();
       if (data.messages) setChatMessages(data.messages);
@@ -150,7 +150,9 @@ export default function DashboardPage() {
     if (!user?.id) return;
 
     // Show immediate loading feedback
-    setChatMessages([{role: "assistant", content: "Switching to conversation..."}]);
+    setChatMessages([
+      { role: "assistant", content: "Switching to conversation..." },
+    ]);
     setConvId(conversationId);
     setShowConversations(false); // Close the conversations sidebar
 
@@ -161,7 +163,7 @@ export default function DashboardPage() {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
           },
-        }
+        },
       );
       const data = await res.json();
       if (data.messages) {
@@ -169,7 +171,12 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error("Failed to load specific conversation:", err);
-      setChatMessages([{role: "assistant", content: "Error loading conversation. Please try again."}]);
+      setChatMessages([
+        {
+          role: "assistant",
+          content: "Error loading conversation. Please try again.",
+        },
+      ]);
     }
   };
 
@@ -178,7 +185,9 @@ export default function DashboardPage() {
     if (!user?.id) return;
 
     // Show immediate feedback
-    setAllConversations(prev => prev.filter(conv => conv.id !== conversationId));
+    setAllConversations((prev) =>
+      prev.filter((conv) => conv.id !== conversationId),
+    );
 
     try {
       const res = await fetch(
@@ -188,7 +197,7 @@ export default function DashboardPage() {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
           },
-        }
+        },
       );
 
       if (!res.ok) {
@@ -221,16 +230,21 @@ export default function DashboardPage() {
     try {
       if (currentConvId) {
         // If there's a specific conversation ID, delete that conversation
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user?.id}/conversations/${currentConvId}`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user?.id}/conversations/${currentConvId}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+            },
           },
-        });
+        );
 
         if (res.ok) {
           // Remove the conversation from the local state if it's loaded
-          setAllConversations(prev => prev.filter(conv => conv.id !== currentConvId));
+          setAllConversations((prev) =>
+            prev.filter((conv) => conv.id !== currentConvId),
+          );
         } else {
           console.error("Failed to delete conversation:", await res.text());
           // Reload conversations to ensure consistency
@@ -261,7 +275,7 @@ export default function DashboardPage() {
           priority,
         });
         setTodos((prev) =>
-          prev.map((t) => (t.id === editingTodo.id ? updated : t))
+          prev.map((t) => (t.id === editingTodo.id ? updated : t)),
         );
       } else {
         const newTodo = await api.createTask({
@@ -297,7 +311,7 @@ export default function DashboardPage() {
             Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
           },
           body: JSON.stringify({ message: chatInput, conversation_id: convId }),
-        }
+        },
       );
 
       if (!response.body) return;
@@ -321,7 +335,7 @@ export default function DashboardPage() {
             const data = JSON.parse(trimmedLine.slice(6));
 
             if (data.tool) {
-              setToolStatus(`[SYSTEM] EXECUTING: ${data.tool}...`);
+              setToolStatus(`Tool Call 🛠:\n ${data.tool}...`);
             }
 
             if (data.chunk) {
@@ -439,7 +453,9 @@ export default function DashboardPage() {
             </h2>
           </div>
           <p className="text-[11px] text-slate-400 leading-snug">
-            Atomic segments drive maximum velocity. Use the AI to decompose complex goals into 15-minute actionable steps.
+            Micro-tasks are tiny, clear actions that take about 2 minutes to
+            execute and help you start without feeling overwhelmed. They turn
+            big goals into easy first steps and help you get into focus fast.
           </p>
         </section>
 
@@ -489,8 +505,8 @@ export default function DashboardPage() {
                     todo.priority === "high"
                       ? "bg-red-500"
                       : todo.priority === "medium"
-                      ? "bg-amber-500"
-                      : "bg-emerald-500"
+                        ? "bg-amber-500"
+                        : "bg-emerald-500"
                   }`}
                 />
                 <button
@@ -632,7 +648,11 @@ export default function DashboardPage() {
           <div className="flex-1 overflow-y-auto p-4 space-y-4 text-[12px] bg-slate-950 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {chatMessages.length === 0 && (
               <div className="p-4 bg-slate-800/40 rounded-xl text-slate-300 leading-relaxed">
-                Hello <span className="text-[#00ff41] font-bold">{user?.name || 'User'}</span>! I'm your Micro Task assistant. How can I help you today?
+                Hello{" "}
+                <span className="text-[#00ff41] font-bold">
+                  {user?.name || "User"}
+                </span>
+                ! I'm your Micro Task assistant. How can I help you today?
               </div>
             )}
             {chatMessages.map((m, i) => (
@@ -640,24 +660,26 @@ export default function DashboardPage() {
                 key={i}
                 className={m.role === "user" ? "text-right" : "text-left"}
               >
-                <span
-                  className={`inline-block px-4 py-2.5 rounded-xl max-w-[85%] ${
-                    m.role === "user"
-                      ? "bg-indigo-600/20 text-indigo-100 border border-indigo-500/20"
-                      : "bg-slate-800/40 text-slate-200"
-                  }`}
-                >
-                  {m.content}
-                </span>
+                {m.content?.trim() && (
+                  <span
+                    className={`inline-block px-4 py-2.5 rounded-xl max-w-[85%] ${
+                      m.role === "user"
+                        ? "bg-indigo-600/20 text-indigo-100 border border-indigo-500/20"
+                        : "bg-slate-800/40 text-slate-200"
+                    }`}
+                  >
+                    {m.content}
+                  </span>
+                )}
               </div>
             ))}
             {isChatLoading && !toolStatus && (
-              <div className="text-indigo-500 font-mono text-[10px] animate-pulse ml-1">
-                &gt; ANALYZING INTENT...
+              <div className="text-indigo-500 animate-fade ml-1">
+                Wait! I am typing...
               </div>
             )}
             {toolStatus && (
-              <div className="text-[#00ff41] font-mono text-[10px] animate-pulse ml-1 whitespace-pre-wrap">
+              <div className="text-indigo-500 animate-fade ml-1">
                 {toolStatus}
               </div>
             )}
@@ -726,7 +748,8 @@ export default function DashboardPage() {
                       {conv.preview}
                     </div>
                     <div className="text-[10px] text-slate-400 mt-1">
-                      {new Date(conv.updated_at).toLocaleDateString()} • {conv.message_count} messages
+                      {new Date(conv.updated_at).toLocaleDateString()} •{" "}
+                      {conv.message_count} messages
                     </div>
                   </div>
                   <button
@@ -734,7 +757,11 @@ export default function DashboardPage() {
                     aria-label="Delete Conversation"
                     onClick={async (e) => {
                       e.stopPropagation(); // Prevent triggering the parent click
-                      if (confirm("Are you sure you want to delete this conversation?")) {
+                      if (
+                        confirm(
+                          "Are you sure you want to delete this conversation?",
+                        )
+                      ) {
                         await deleteSpecificConversation(conv.id);
                       }
                     }}
@@ -812,8 +839,8 @@ export default function DashboardPage() {
                 {isSubmitting
                   ? "Syncing..."
                   : editingTodo
-                  ? "Update Task"
-                  : "Create Task"}
+                    ? "Update Task"
+                    : "Create Task"}
               </button>
             </form>
           </div>
