@@ -2,12 +2,12 @@
 ```
  Directory of D:\VScode\GitHub\From_Console_to_Cloud\backend
 
-__pycache__/
 auth/
+configs/
 database/
-models/
 routes/
 schemas/
+simple_agents/
 tests/
 .env
 .gitignore
@@ -15,6 +15,7 @@ Dockerfile
 auth.db
 deploy_hf.sh
 main.py
+mcp_tools.py
 models.py
 requirements.txt
 space.yaml
@@ -68,6 +69,36 @@ def get_current_user_id(
         raise HTTPException(status_code=401, detail="Internal authentication failure")
 ```
 
+# configs\__init__.py
+```python
+# Configs package initialization
+```
+
+# configs\config.py
+```python
+# C:\Users\giaic\Desktop\multi_agent\configs\config.py
+from agents import OpenAIChatCompletionsModel,AsyncOpenAI
+from dotenv import load_dotenv
+import os
+load_dotenv()
+external_client = AsyncOpenAI(api_key=os.getenv("GEMINI_API_KEY"),base_url='https://generativelanguage.googleapis.com/v1beta/openai/')
+model_config = OpenAIChatCompletionsModel(model='gemini-2.5-flash',openai_client=external_client)
+
+
+# ---------------------------
+# QWEN CLIENT + MODEL SETUP
+# ---------------------------
+# external_client = AsyncOpenAI(
+#     api_key=os.getenv("QWEN_API_KEY"),
+#     base_url="https://portal.qwen.ai/v1",
+# )
+# model_config = OpenAIChatCompletionsModel(
+#     model="qwen3-coder-plus",
+#     openai_client=external_client,
+# )
+
+```
+
 # database\__init__.py
 ```python
 import logging
@@ -116,7 +147,7 @@ import os
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import tasks
+from routes import tasks, chat, chatkit # Added chatkit
 from database import create_db_and_tables
 from dotenv import load_dotenv
 
@@ -138,6 +169,8 @@ app.add_middleware(
 )
 
 app.include_router(tasks.router)
+app.include_router(chat.router)
+app.include_router(chatkit.router) # Registered chatkit
 
 @app.on_event("startup")
 def startup():
@@ -166,19 +199,297 @@ if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
 ```
 
+# mcp_tools.py
+```python
+from sqlmodel import Session, select
+from models import Task, Conversation, Message, TaskPriority
+from datetime import datetime
+from typing import Optional, List
+from database import get_session
+import sqlalchemy
+
+
+def create_add_task_tool():
+    """Create the add_task MCP tool for AI agent"""
+    def add_task(user_id: str, title: str, description: Optional[str] = None) -> dict:
+        """
+        Add a new task for the user.
+        
+        Args:
+            user_id: The ID of the user creating the task
+            title: The title of the task
+            description: Optional description of the task
+            
+        Returns:
+            Dictionary with task_id, status, and title
+        """
+        # Get database session
+        session_gen = get_session()
+        session = next(session_gen)
+        
+        try:
+            # Create new task
+            new_task = Task(
+                user_id=user_id,
+                title=title,
+                description=description,
+                priority=TaskPriority.medium  # Default priority
+            )
+            
+            session.add(new_task)
+            session.commit()
+            session.refresh(new_task)
+            
+            return {
+                "task_id": new_task.id,
+                "status": "created",
+                "title": new_task.title
+            }
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+            # Return the generator to its original state for proper cleanup
+            next(session_gen, None)
+    
+    return add_task
+
+
+def create_list_tasks_tool():
+    """Create the list_tasks MCP tool for AI agent"""
+    def list_tasks(user_id: str, status: Optional[str] = "all") -> List[dict]:
+        """
+        List tasks for the user with optional filtering.
+        
+        Args:
+            user_id: The ID of the user whose tasks to list
+            status: Filter by status - "all", "pending", "completed" (default: "all")
+            
+        Returns:
+            List of task dictionaries
+        """
+        # Get database session
+        session_gen = get_session()
+        session = next(session_gen)
+        
+        try:
+            # Build query based on status filter
+            query = select(Task).where(Task.user_id == user_id)
+            
+            if status == "pending":
+                query = query.where(Task.completed == False)
+            elif status == "completed":
+                query = query.where(Task.completed == True)
+            
+            tasks = session.exec(query).all()
+            
+            # Convert to dictionary format
+            result = []
+            for task in tasks:
+                result.append({
+                    "id": task.id,
+                    "title": task.title,
+                    "description": task.description,
+                    "completed": task.completed,
+                    "priority": task.priority.value,
+                    "category": task.category,
+                    "tags": task.tags,
+                    "created_at": task.created_at.isoformat() if hasattr(task.created_at, 'isoformat') else str(task.created_at),
+                    "updated_at": task.updated_at.isoformat() if hasattr(task.updated_at, 'isoformat') else str(task.updated_at)
+                })
+            
+            return result
+        except Exception as e:
+            raise e
+        finally:
+            session.close()
+            # Return the generator to its original state for proper cleanup
+            next(session_gen, None)
+    
+    return list_tasks
+
+
+def create_complete_task_tool():
+    """Create the complete_task MCP tool for AI agent"""
+    def complete_task(user_id: str, task_id: int) -> dict:
+        """
+        Mark a task as complete.
+        
+        Args:
+            user_id: The ID of the user who owns the task
+            task_id: The ID of the task to mark as complete
+            
+        Returns:
+            Dictionary with task_id, status, and title
+        """
+        # Get database session
+        session_gen = get_session()
+        session = next(session_gen)
+        
+        try:
+            # Get the task
+            task = session.get(Task, task_id)
+            
+            # Verify that the task belongs to the user
+            if not task or task.user_id != user_id:
+                raise ValueError(f"Task {task_id} not found or doesn't belong to user {user_id}")
+            
+            # Mark as complete
+            task.completed = True
+            task.updated_at = datetime.utcnow()
+            
+            session.add(task)
+            session.commit()
+            session.refresh(task)
+            
+            return {
+                "task_id": task.id,
+                "status": "completed",
+                "title": task.title
+            }
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+            # Return the generator to its original state for proper cleanup
+            next(session_gen, None)
+    
+    return complete_task
+
+
+def create_delete_task_tool():
+    """Create the delete_task MCP tool for AI agent"""
+    def delete_task(user_id: str, task_id: int) -> dict:
+        """
+        Delete a task for the user.
+        
+        Args:
+            user_id: The ID of the user who owns the task
+            task_id: The ID of the task to delete
+            
+        Returns:
+            Dictionary with task_id, status, and title
+        """
+        # Get database session
+        session_gen = get_session()
+        session = next(session_gen)
+        
+        try:
+            # Get the task
+            task = session.get(Task, task_id)
+            
+            # Verify that the task belongs to the user
+            if not task or task.user_id != user_id:
+                raise ValueError(f"Task {task_id} not found or doesn't belong to user {user_id}")
+            
+            # Store task info before deletion for response
+            task_title = task.title
+            
+            # Delete the task
+            session.delete(task)
+            session.commit()
+            
+            return {
+                "task_id": task_id,
+                "status": "deleted",
+                "title": task_title
+            }
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+            # Return the generator to its original state for proper cleanup
+            next(session_gen, None)
+    
+    return delete_task
+
+
+def create_update_task_tool():
+    """Create the update_task MCP tool for AI agent"""
+    def update_task(user_id: str, task_id: int, title: Optional[str] = None, description: Optional[str] = None) -> dict:
+        """
+        Update a task for the user.
+        
+        Args:
+            user_id: The ID of the user who owns the task
+            task_id: The ID of the task to update
+            title: Optional new title for the task
+            description: Optional new description for the task
+            
+        Returns:
+            Dictionary with task_id, status, and title
+        """
+        # Get database session
+        session_gen = get_session()
+        session = next(session_gen)
+        
+        try:
+            # Get the task
+            task = session.get(Task, task_id)
+            
+            # Verify that the task belongs to the user
+            if not task or task.user_id != user_id:
+                raise ValueError(f"Task {task_id} not found or doesn't belong to user {user_id}")
+            
+            # Update fields if provided
+            if title is not None:
+                task.title = title
+            if description is not None:
+                task.description = description
+            
+            task.updated_at = datetime.utcnow()
+            
+            session.add(task)
+            session.commit()
+            session.refresh(task)
+            
+            return {
+                "task_id": task.id,
+                "status": "updated",
+                "title": task.title
+            }
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+            # Return the generator to its original state for proper cleanup
+            next(session_gen, None)
+    
+    return update_task
+
+
+# Initialize all tools
+add_task_tool = create_add_task_tool()
+list_tasks_tool = create_list_tasks_tool()
+complete_task_tool = create_complete_task_tool()
+delete_task_tool = create_delete_task_tool()
+update_task_tool = create_update_task_tool()
+```
+
 # models.py
 ```python
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
-from sqlalchemy import JSON
+from sqlalchemy import JSON, Column, TEXT
+from pydantic import BaseModel
 
 
 class TaskPriority(str, Enum):
     low = "low"
     medium = "medium"
     high = "high"
+
+
+class UserContext(BaseModel):
+    name: str
+    uid: str
+    personalization_data: Optional[str] = None
 
 
 class Task(SQLModel, table=True):
@@ -192,20 +503,179 @@ class Task(SQLModel, table=True):
     tags: List[str] = Field(default_factory=list, sa_type=JSON)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Conversation(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: str = Field(index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Relationship to messages
+    messages: List["Message"] = Relationship(
+        back_populates="conversation",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+
+
+class Message(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    conversation_id: int = Field(foreign_key="conversation.id", index=True)
+    user_id: str = Field(index=True)
+    role: str  # 'user', 'assistant', or 'system'
+    content: str = Field(sa_column=Column(TEXT))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Relationship back to conversation
+    conversation: Conversation = Relationship(back_populates="messages")
 ```
 
-# models\user.py
+# routes\chat.py
 ```python
-from sqlmodel import SQLModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlmodel import Session, select
+from models import Conversation, Message, UserContext
+from database import get_session
+from auth.jwt import get_current_user_id
+from simple_agents.aagents import Todo_Agent
+from agents import Runner, set_tracing_export_api_key, trace
+import os
 from typing import Optional
-from datetime import datetime
 
-class User(SQLModel, table=True):
-    id: Optional[str] = Field(default=None, primary_key=True)
-    email: str = Field(unique=True, index=True)
-    name: str
-    password_hash: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+router = APIRouter(prefix="/api", tags=["chat"])
+
+# Initialize tracing globally
+set_tracing_export_api_key(os.getenv('Tracing_key'))
+
+@router.get("/{user_id}/history")
+async def get_chat_history(
+    user_id: str,
+    conversation_id: Optional[int] = None,
+    session: Session = Depends(get_session),
+    auth_id: str = Depends(get_current_user_id),
+):
+    if auth_id != user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    query = select(Message).where(Message.user_id == user_id)
+    if conversation_id:
+        query = query.where(Message.conversation_id == conversation_id)
+    
+    messages = session.exec(query.order_by(Message.created_at.asc())).all()
+    return {"messages": [{"role": m.role, "content": m.content} for m in messages]}
+
+@router.post("/{user_id}/chat")
+async def chat_endpoint(
+    user_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    auth_id: str = Depends(get_current_user_id),
+):
+    if auth_id != user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    body = await request.json()
+    user_msg = body.get("message", "")
+    conversation_id = body.get("conversation_id")
+
+    if not conversation_id:
+        conv = Conversation(user_id=user_id)
+        session.add(conv)
+        session.commit()
+        session.refresh(conv)
+        conversation_id = conv.id
+
+    # 1. Fetch History from Neon
+    existing_messages = session.exec(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at.asc())
+    ).all()
+
+    # Map DB messages to format
+    history = [{"role": m.role, "content": m.content} for m in existing_messages]
+
+    # 2. Store current user message in Neon
+    session.add(
+        Message(conversation_id=conversation_id, user_id=user_id, role="user", content=user_msg)
+    )
+    session.commit()
+
+    user_ctx = UserContext(name=user_id, uid=user_id)
+    
+    # 3. Run Agent with combined history and new message as the input list
+    # This fixes the 'unexpected keyword argument message_history' error
+    messages_to_process = history + [{"role": "user", "content": user_msg}]
+    
+    try:
+        with trace(workflow_name="Focus AI Assistant", group_id=str(conversation_id)):
+            result = await Runner.run(
+                Todo_Agent,
+                messages_to_process,
+                context=user_ctx
+            )
+        
+        ai_resp = result.final_output
+
+        # 4. Store assistant response in Neon
+        session.add(
+            Message(
+                conversation_id=conversation_id, user_id=user_id, role="assistant", content=ai_resp
+            )
+        )
+        session.commit()
+
+        return {"response": ai_resp, "conversation_id": conversation_id}
+    except Exception as e:
+        import logging
+        logging.error(f"Chat Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="AI processing failed")
+```
+
+# routes\chatkit.py
+```python
+import os
+import httpx
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
+
+router = APIRouter(prefix="/api", tags=["chatkit"])
+
+@router.post("/create-session")
+async def create_session(request: Request):
+    """
+    Proxies the session creation request to OpenAI ChatKit API.
+    Required for the frontend component to move past the loading state.
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return JSONResponse({"error": "Missing OPENAI_API_KEY"}, status_code=500)
+
+    body = await request.json()
+    workflow_id = body.get("workflow", {}).get("id") or os.getenv("CHATKIT_WORKFLOW_ID")
+    
+    if not workflow_id:
+        return JSONResponse({"error": "Missing workflow id"}, status_code=400)
+
+    try:
+        async with httpx.AsyncClient(base_url="https://api.openai.com", timeout=10.0) as client:
+            response = await client.post(
+                "/v1/chatkit/sessions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "OpenAI-Beta": "chatkit_beta=v1",
+                    "Content-Type": "application/json",
+                },
+                json={"workflow": {"id": workflow_id}, "user": "default_user"},
+            )
+            
+            if not response.is_success:
+                return JSONResponse({"error": response.text}, status_code=response.status_code)
+                
+            return JSONResponse(response.json(), status_code=200)
+
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=502)
 ```
 
 # routes\tasks.py
@@ -380,6 +850,58 @@ class TaskResponse(TaskBase):
     completed: bool
     created_at: datetime
     updated_at: datetime
+```
+
+# simple_agents\__init__.py
+```python
+# Simple agents package initialization
+```
+
+# simple_agents\aagents.py
+```python
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from configs.config import model_config
+from agents import Agent, RunContextWrapper, function_tool
+from models import UserContext
+from mcp_tools import add_task_tool, list_tasks_tool, complete_task_tool, delete_task_tool
+
+def dynamic_instructions(context: RunContextWrapper[UserContext], agent: Agent[UserContext]) -> str:
+    user_info = context.context
+    return f"""
+    You are the AI Todo Assistant for {user_info.name}.
+    Use tools to manage tasks. Commands:
+    - Add task [title]
+    - List tasks [all/pending/completed]
+    - Complete task [id]
+    - Delete task [id]
+    Be concise. Do not mention tools. Confirm actions.
+    """
+
+@function_tool
+def get_user_info(ctx: RunContextWrapper[UserContext]) -> str:
+    return f"User: {ctx.context.name}, UID: {ctx.context.uid}"
+
+@function_tool
+def add_new_task(ctx: RunContextWrapper[UserContext], title: str, description: str = None) -> str:
+    return str(add_task_tool(ctx.context.uid, title, description))
+
+@function_tool
+def list_my_tasks(ctx: RunContextWrapper[UserContext], status: str = "all") -> str:
+    return str(list_tasks_tool(ctx.context.uid, status))
+
+@function_tool
+def finish_task(ctx: RunContextWrapper[UserContext], task_id: int) -> str:
+    return str(complete_task_tool(ctx.context.uid, task_id))
+
+Todo_Agent = Agent[UserContext](
+    name="AI Todo Assistant",
+    instructions=dynamic_instructions,
+    tools=[get_user_info, add_new_task, list_my_tasks, finish_task],
+    model=model_config,
+)
 ```
 
 # tests\test_api_endpoints.py

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "./../../context/AuthContext";
 import { api } from "./../../lib/api";
+import { useChatKit } from "@openai/chatkit-react";
 import {
   LogOut,
   Plus,
@@ -14,8 +15,15 @@ import {
   CheckSquare,
   Clock,
   Loader2,
+  MessageSquare,
+  Send,
+  X,
 } from "lucide-react";
 import { StatBox, PriorityBtn } from "./../../components/DashboardUI";
+
+// ChatKit Configuration Constants
+const WORKFLOW_ID =
+  process.env.NEXT_PUBLIC_CHATKIT_WORKFLOW_ID || "wf_placeholder";
 
 export default function DashboardPage() {
   const { user, signOut } = useAuth();
@@ -27,6 +35,43 @@ export default function DashboardPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingTodo, setEditingTodo] = useState<any | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Chat States
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [convId, setConvId] = useState<number | null>(null);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [toolStatus, setToolStatus] = useState<string | null>(null);
+
+  // ChatKit Integration (Used for session management and compliance)
+  const getClientSecret = useMemo(() => {
+    return async (currentSecret: string | null) => {
+      if (currentSecret) return currentSecret;
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/create-session`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+            },
+            body: JSON.stringify({ workflow: { id: WORKFLOW_ID } }),
+          }
+        );
+        const data = await res.json();
+        return data.client_secret;
+      } catch (err) {
+        console.error("ChatKit Session Error:", err);
+        return "mock_secret";
+      }
+    };
+  }, []);
+
+  const chatkit = useChatKit({
+    api: { getClientSecret },
+  });
 
   const loadTodos = useCallback(async () => {
     try {
@@ -42,6 +87,30 @@ export default function DashboardPage() {
   useEffect(() => {
     loadTodos();
   }, [loadTodos]);
+
+  // Fetch Chat History when drawer opens
+  const loadChatHistory = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user.id}/history`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+        }
+      );
+      const data = await res.json();
+      if (data.messages) setChatMessages(data.messages);
+    } catch (err) {
+      console.error("Failed to load chat history:", err);
+    }
+  }, [user?.id]);
+
+  // Trigger history load when chat is toggled open
+  useEffect(() => {
+    if (isChatOpen) loadChatHistory();
+  }, [isChatOpen, loadChatHistory]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +140,87 @@ export default function DashboardPage() {
       console.error(err);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleChatSubmit = async () => {
+    if (!chatInput.trim()) return;
+    const userMsg = { role: "user", content: chatInput };
+    setChatMessages((prev) => [...prev, userMsg]);
+    setChatInput("");
+    setIsChatLoading(true);
+    setToolStatus(null);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user?.id}/chat`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+          body: JSON.stringify({ message: chatInput, conversation_id: convId }),
+        }
+      );
+
+      if (!response.body) return;
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      setChatMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine || !trimmedLine.startsWith("data: ")) continue;
+
+          try {
+            const data = JSON.parse(trimmedLine.slice(6));
+
+            if (data.tool) {
+              setToolStatus(`AI is calling \n  ${data.tool}...`);
+            }
+
+            if (data.chunk) {
+              setIsChatLoading(false);
+              setToolStatus(null);
+              setChatMessages((prev) => {
+                const last = prev[prev.length - 1];
+                return [
+                  ...prev.slice(0, -1),
+                  { ...last, content: last.content + data.chunk },
+                ];
+              });
+            }
+
+            if (data.error) {
+              setIsChatLoading(false);
+              setToolStatus(null);
+              setChatMessages((prev) => [
+                ...prev.slice(0, -1),
+                { role: "assistant", content: data.error },
+              ]);
+            }
+
+            if (data.done) {
+              setConvId(data.conversation_id);
+              loadTodos();
+            }
+          } catch (e) {
+            console.error("Error parsing stream chunk", e);
+          }
+        }
+      }
+    } catch (err) {
+      setIsChatLoading(false);
+      setToolStatus(null);
+      console.error(err);
     }
   };
 
@@ -119,10 +269,17 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-[#020617] text-slate-200 pb-24">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[10%] right-[-5%] w-[40%] h-[40%] bg-purple-600/10 blur-[100px] rounded-full" />
+      </div>
+
       <div className="max-w-xl mx-auto px-6 pt-12 relative z-10">
         <header className="flex justify-between items-start mb-10">
           <div>
-            <h1 className="text-3xl font-black text-white mb-1">Focus</h1>
+            <h1 className="text-3xl font-black text-white mb-1 tracking-tight">
+              Focus
+            </h1>
             <p className="text-slate-500 text-xs font-bold tracking-widest">
               {user?.email}
             </p>
@@ -211,13 +368,13 @@ export default function DashboardPage() {
                     className={`font-bold truncate leading-tight ${
                       todo.completed
                         ? "text-slate-600 line-through"
-                        : "text-slate-100"
+                        : "text-white"
                     }`}
                   >
                     {todo.title}
                   </h3>
                   {todo.description && (
-                    <p className="text-[10px] mt-1 truncate text-slate-500 font-medium">
+                    <p className="text-[10px] mt-1 truncate text-slate-500 font-medium tracking-tight">
                       {todo.description}
                     </p>
                   )}
@@ -245,10 +402,22 @@ export default function DashboardPage() {
           )}
         </section>
       </div>
+
+      {/* Floating Chat Trigger */}
+      <button
+        title="Toggle AI Chat"
+        aria-label="Toggle AI Chat"
+        onClick={() => setIsChatOpen(!isChatOpen)}
+        className="fixed bottom-10 left-8 h-14 w-14 bg-slate-800 text-indigo-400 rounded-2xl shadow-xl flex items-center justify-center border border-slate-700 z-50 hover:bg-slate-700 transition-all shadow-indigo-500/5"
+      >
+        <MessageSquare size={28} />
+      </button>
+
+      {/* Floating Add Trigger */}
       <button
         title="Add Task"
         aria-label="Add Task"
-        className="fixed bottom-10 right-8 h-16 w-16 bg-indigo-600 rounded-2xl shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 border-t border-white/20"
+        className="fixed bottom-10 right-8 h-16 w-16 bg-indigo-600 text-white rounded-2xl shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 border-t border-white/20"
         onClick={() => {
           closeModal();
           setShowModal(true);
@@ -257,30 +426,118 @@ export default function DashboardPage() {
         <Plus size={32} className="text-white" strokeWidth={3} />
       </button>
 
+      {/* Chat Interface Drawer (Custom Input to avoid blocked ChatKit input) */}
+      {isChatOpen && (
+        <div className="fixed bottom-28 left-8 w-80 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-50 flex flex-col h-96 animate-in slide-in-from-bottom-5 duration-300 overflow-hidden">
+          <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 rounded-t-2xl">
+            <div className="flex items-center gap-2">
+              <h4 className="font-black text-[10px] uppercase tracking-widest text-indigo-400">
+                Focus AI
+              </h4>
+            </div>
+            <button
+              title="Close Chat"
+              aria-label="Close Chat"
+              onClick={() => setIsChatOpen(false)}
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 text-[12px] bg-slate-950">
+            {chatMessages.length === 0 && (
+              <div className="p-3 bg-slate-800/40 rounded-xl text-slate-300">
+                Hello{" "}
+                <span style={{ color: "#00ff41", fontWeight: "bold" }}>
+                  {user?.name || "User"}
+                </span>
+                ! I'm your AI assistant for the Focus Todo App.
+              </div>
+            )}
+            {chatMessages.map((m, i) => (
+              <div
+                key={i}
+                className={m.role === "user" ? "text-right" : "text-left"}
+              >
+                <span
+                  className={`inline-block px-3 py-2 rounded-xl ${
+                    m.role === "user"
+                      ? "bg-indigo-600 text-white"
+                      : "bg-slate-800 text-slate-300"
+                  }`}
+                >
+                  {m.content}
+                </span>
+              </div>
+            ))}
+            {/* Thinking Indicator */}
+            {isChatLoading && !toolStatus && (
+              <div className="ml-2 text-[#6366f1] animate-pulse text-sm">
+                &gt; System thinking...
+              </div>
+            )}
+
+            {/* Tool Status - Shows whenever a tool is active, independent of loading state */}
+            {toolStatus && (
+              <div
+                className="ml-2 text-[#00ff41] animate-pulse text-sm"
+                style={{ whiteSpace: "pre-wrap" }}
+              >
+                {toolStatus}
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 border-t border-slate-800 flex gap-2 bg-slate-900">
+            <input
+              title="Chat Input"
+              aria-label="Chat Input"
+              placeholder="Ask Focus AI..."
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleChatSubmit()}
+              className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+            <button
+              title="Send Message"
+              aria-label="Send Message"
+              onClick={handleChatSubmit}
+              className="bg-indigo-600 p-2 rounded-xl text-white active:scale-95"
+            >
+              <Send size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {showModal && (
         <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-6">
           <div
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             onClick={closeModal}
           />
-          <div className="relative w-full max-w-md bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl p-8 animate-in slide-in-from-bottom-10 duration-300">
+          <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-t-2xl sm:rounded-2xl p-8 animate-in slide-in-from-bottom-10 duration-300 shadow-2xl">
             <h2 className="text-2xl font-black text-white mb-6">
               {editingTodo ? "Refine Task" : "New Task"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <input
+                title="Task Name"
+                aria-label="Task Name"
                 required
                 autoFocus
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                className="w-full bg-slate-800 border-slate-700 rounded-xl px-4 py-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
-                placeholder="Task name..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
+                placeholder="What needs doing?"
               />
               <textarea
+                title="Task Description"
+                aria-label="Task Description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-slate-800 border-slate-700 rounded-xl px-4 py-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                placeholder="Details..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                placeholder="Additional details..."
                 rows={3}
               />
               <div className="flex gap-2">
@@ -307,15 +564,17 @@ export default function DashboardPage() {
                 />
               </div>
               <button
+                title="Commit Changes"
+                aria-label="Commit Changes"
                 type="submit"
                 disabled={isSubmitting || !input.trim()}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-xl font-black text-white transition-all disabled:opacity-40"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-xl font-black text-white transition-all disabled:opacity-40 active:scale-95"
               >
                 {isSubmitting
                   ? "Syncing..."
                   : editingTodo
-                  ? "Update"
-                  : "Create"}
+                  ? "Update Task"
+                  : "Create Task"}
               </button>
             </form>
           </div>
@@ -324,3 +583,4 @@ export default function DashboardPage() {
     </main>
   );
 }
+

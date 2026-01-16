@@ -12,6 +12,7 @@ license = {text = "MIT"}
 dependencies = [
     "bcrypt>=5.0.0",
     "fastapi[standard]>=0.128.0",
+    "openai-agents>=0.6.5",
     "passlib>=1.7.4",
     "psycopg2-binary>=2.9.11",
     "pyjwt>=2.10.1",
