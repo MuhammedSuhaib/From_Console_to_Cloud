@@ -46,6 +46,9 @@ export default function DashboardPage() {
   const [convId, setConvId] = useState<number | null>(null);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
+  const [showConversations, setShowConversations] = useState(false);
+  const [allConversations, setAllConversations] = useState<any[]>([]);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -101,6 +104,28 @@ export default function DashboardPage() {
     loadTodos();
   }, [loadTodos]);
 
+  // Fetch All Conversations
+  const loadAllConversations = useCallback(async () => {
+    if (!user?.id) return;
+    setConversationsLoading(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user.id}/conversations`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+        }
+      );
+      const data = await res.json();
+      if (data.conversations) setAllConversations(data.conversations);
+    } catch (err) {
+      console.error("Failed to load conversations:", err);
+    } finally {
+      setConversationsLoading(false);
+    }
+  }, [user?.id]);
+
   // Fetch Chat History
   const loadChatHistory = useCallback(async () => {
     if (!user?.id) return;
@@ -120,20 +145,102 @@ export default function DashboardPage() {
     }
   }, [user?.id]);
 
+  // Load Specific Conversation
+  const loadSpecificConversation = async (conversationId: number) => {
+    if (!user?.id) return;
+
+    // Show immediate loading feedback
+    setChatMessages([{role: "assistant", content: "Switching to conversation..."}]);
+    setConvId(conversationId);
+    setShowConversations(false); // Close the conversations sidebar
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user.id}/history?conversation_id=${conversationId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+        }
+      );
+      const data = await res.json();
+      if (data.messages) {
+        setChatMessages(data.messages);
+      }
+    } catch (err) {
+      console.error("Failed to load specific conversation:", err);
+      setChatMessages([{role: "assistant", content: "Error loading conversation. Please try again."}]);
+    }
+  };
+
+  // Delete Specific Conversation
+  const deleteSpecificConversation = async (conversationId: number) => {
+    if (!user?.id) return;
+
+    // Show immediate feedback
+    setAllConversations(prev => prev.filter(conv => conv.id !== conversationId));
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user.id}/conversations/${conversationId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        console.error("Failed to delete conversation:", await res.text());
+        // Restore the conversation if deletion failed
+        loadAllConversations(); // Reload the conversation list to restore any that failed to delete
+      } else {
+        // If the currently viewed conversation was deleted, reset to blank state
+        if (convId === conversationId) {
+          setConvId(null);
+          setChatMessages([]);
+        }
+      }
+    } catch (err) {
+      console.error("Error deleting specific conversation:", err);
+      // Restore the conversation if deletion failed
+      loadAllConversations();
+    }
+  };
+
   // Delete Chat History
   const deleteChatHistory = async () => {
     if (!confirm("Wipe all memory of this conversation?")) return;
+
+    // Show immediate feedback
+    setChatMessages([]);
+    const currentConvId = convId; // Store current convId before clearing
+    setConvId(null);
+
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user?.id}/history`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      });
-      setChatMessages([]);
-      setConvId(null);
+      if (currentConvId) {
+        // If there's a specific conversation ID, delete that conversation
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user?.id}/conversations/${currentConvId}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+        });
+
+        if (res.ok) {
+          // Remove the conversation from the local state if it's loaded
+          setAllConversations(prev => prev.filter(conv => conv.id !== currentConvId));
+        } else {
+          console.error("Failed to delete conversation:", await res.text());
+          // Reload conversations to ensure consistency
+          loadAllConversations();
+        }
+      }
     } catch (err) {
       console.error(err);
+      // Reload conversations to ensure consistency
+      loadAllConversations();
     }
   };
 
@@ -477,10 +584,29 @@ export default function DashboardPage() {
             </h4>
             <div className="flex gap-3 sm:gap-2">
               <button
-                title="Refresh History"
-                aria-label="Refresh History"
-                onClick={loadChatHistory}
-                className="text-slate-500 hover:text-white"
+                title="New Conversation"
+                aria-label="New Conversation"
+                onClick={() => {
+                  setConvId(null);
+                  setChatMessages([]);
+                }}
+                className="text-slate-500 hover:text-indigo-400"
+              >
+                <Plus size={16} />
+              </button>
+              <button
+                title="View Conversations"
+                aria-label="View Conversations"
+                onClick={async () => {
+                  // Show the conversations panel immediately
+                  setShowConversations(true);
+                  // Set loading state to provide immediate feedback
+                  setConversationsLoading(true);
+                  // Then load the conversations in the background
+                  await loadAllConversations();
+                  // The loading state will be cleared by the loadAllConversations function
+                }}
+                className="text-slate-500 hover:text-indigo-400"
               >
                 <History size={16} />
               </button>
@@ -556,6 +682,69 @@ export default function DashboardPage() {
             >
               <Send size={14} />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Conversations Sidebar */}
+      {showConversations && (
+        <div className="fixed inset-0 sm:inset-auto sm:bottom-20 sm:left-8 sm:w-80 bg-slate-900 border-0 sm:border sm:border-slate-800 sm:rounded-xl shadow-2xl z-50 flex flex-col h-full sm:h-[450px] animate-in slide-in-from-bottom-2 overflow-hidden">
+          <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+            <h4 className="font-black text-[10px] uppercase tracking-widest text-indigo-400">
+              Your Conversations
+            </h4>
+            <button
+              title="Close Conversations"
+              aria-label="Close Conversations"
+              onClick={() => setShowConversations(false)}
+              className="text-slate-500 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 text-[12px] bg-slate-950">
+            {conversationsLoading ? (
+              <div className="flex justify-center items-center h-full">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
+              </div>
+            ) : allConversations.length === 0 ? (
+              <div className="p-4 text-center text-slate-500">
+                No conversations yet
+              </div>
+            ) : (
+              allConversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  className="p-3 bg-slate-800/40 rounded-lg flex justify-between items-start group"
+                >
+                  <div
+                    className="flex-1 cursor-pointer hover:bg-slate-700/30 rounded p-1 -m-1"
+                    onClick={() => loadSpecificConversation(conv.id)}
+                  >
+                    <div className="font-medium text-white truncate">
+                      {conv.preview}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-1">
+                      {new Date(conv.updated_at).toLocaleDateString()} • {conv.message_count} messages
+                    </div>
+                  </div>
+                  <button
+                    title="Delete Conversation"
+                    aria-label="Delete Conversation"
+                    onClick={async (e) => {
+                      e.stopPropagation(); // Prevent triggering the parent click
+                      if (confirm("Are you sure you want to delete this conversation?")) {
+                        await deleteSpecificConversation(conv.id);
+                      }
+                    }}
+                    className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-500 ml-2"
+                  >
+                    <Trash size={14} />
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}

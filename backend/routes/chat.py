@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
 from models import Conversation, Message, UserContext
 from database import get_session, engine
 from auth.jwt import get_current_user_id
@@ -18,6 +18,84 @@ router = APIRouter(prefix="/api", tags=["chat"])
 # Initialize tracing globally
 set_tracing_export_api_key(os.getenv('Tracing_key'))
 
+@router.get("/{user_id}/conversations")
+async def get_all_conversations(
+    user_id: str,
+    session: Session = Depends(get_session),
+    auth_id: str = Depends(get_current_user_id),
+):
+    if auth_id != user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    # Get all conversations for the user
+    conversations = session.exec(
+        select(Conversation)
+        .where(Conversation.user_id == user_id)
+        .order_by(Conversation.updated_at.desc())
+    ).all()
+
+    # For each conversation, get the first message as preview
+    result = []
+    for conv in conversations:
+        # Get the first message in the conversation as preview
+        first_message = session.exec(
+            select(Message)
+            .where(Message.conversation_id == conv.id)
+            .order_by(Message.created_at.asc())
+            .limit(1)
+        ).first()
+
+        # Count total messages in conversation
+        message_count = session.exec(
+            select(func.count(Message.id))
+            .where(Message.conversation_id == conv.id)
+        ).one()
+
+        result.append({
+            "id": conv.id,
+            "created_at": conv.created_at.isoformat(),
+            "updated_at": conv.updated_at.isoformat(),
+            "preview": first_message.content[:50] + "..." if first_message and len(first_message.content) > 50 else (first_message.content if first_message else "Empty conversation"),
+            "message_count": message_count
+        })
+
+    return {"conversations": result}
+
+
+@router.delete("/{user_id}/conversations/{conversation_id}")
+async def delete_conversation(
+    user_id: str,
+    conversation_id: int,
+    session: Session = Depends(get_session),
+    auth_id: str = Depends(get_current_user_id),
+):
+    if auth_id != user_id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    # Get the conversation to ensure it belongs to the user
+    conversation = session.get(Conversation, conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if conversation.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this conversation")
+
+    # Delete all messages in the conversation first (due to foreign key constraint)
+    messages_to_delete = session.exec(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+    ).all()
+
+    for message in messages_to_delete:
+        session.delete(message)
+
+    # Delete the conversation
+    session.delete(conversation)
+    session.commit()
+
+    return {"message": "Conversation deleted successfully"}
+
+
 @router.get("/{user_id}/history")
 async def get_chat_history(
     user_id: str,
@@ -31,7 +109,7 @@ async def get_chat_history(
     query = select(Message).where(Message.user_id == user_id)
     if conversation_id:
         query = query.where(Message.conversation_id == conversation_id)
-    
+
     messages = session.exec(query.order_by(Message.created_at.asc())).all()
     return {"messages": [{"role": m.role, "content": m.content} for m in messages]}
 
