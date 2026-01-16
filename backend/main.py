@@ -2,7 +2,8 @@ import os
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import tasks, chat, chatkit # Added chatkit
+from routes import tasks, chat, chatkit
+from mcp_server.mcp_server import mcp 
 from database import create_db_and_tables
 from dotenv import load_dotenv
 
@@ -26,6 +27,9 @@ app.add_middleware(
 app.include_router(tasks.router)
 app.include_router(chat.router)
 app.include_router(chatkit.router) # Registered chatkit
+
+# Mount the official MCP server using SSE transport
+app.mount("/mcp", mcp.sse_app())
 
 @app.on_event("startup")
 def startup():

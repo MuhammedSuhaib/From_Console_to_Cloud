@@ -41,6 +41,8 @@ export default function DashboardPage() {
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [convId, setConvId] = useState<number | null>(null);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [toolStatus, setToolStatus] = useState<string | null>(null);
 
   // ChatKit Integration (Used for session management and compliance)
   const getClientSecret = useMemo(() => {
@@ -86,6 +88,30 @@ export default function DashboardPage() {
     loadTodos();
   }, [loadTodos]);
 
+  // Fetch Chat History when drawer opens
+  const loadChatHistory = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user.id}/history`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+        }
+      );
+      const data = await res.json();
+      if (data.messages) setChatMessages(data.messages);
+    } catch (err) {
+      console.error("Failed to load chat history:", err);
+    }
+  }, [user?.id]);
+
+  // Trigger history load when chat is toggled open
+  useEffect(() => {
+    if (isChatOpen) loadChatHistory();
+  }, [isChatOpen, loadChatHistory]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -122,8 +148,10 @@ export default function DashboardPage() {
     const userMsg = { role: "user", content: chatInput };
     setChatMessages((prev) => [...prev, userMsg]);
     setChatInput("");
+    setIsChatLoading(true);
+    setToolStatus(null);
     try {
-      const res = await fetch(
+      const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user?.id}/chat`,
         {
           method: "POST",
@@ -134,14 +162,64 @@ export default function DashboardPage() {
           body: JSON.stringify({ message: chatInput, conversation_id: convId }),
         }
       );
-      const data = await res.json();
-      setChatMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: data.response },
-      ]);
-      setConvId(data.conversation_id);
-      loadTodos();
+
+      if (!response.body) return;
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      setChatMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine || !trimmedLine.startsWith("data: ")) continue;
+
+          try {
+            const data = JSON.parse(trimmedLine.slice(6));
+
+            if (data.tool) {
+              setToolStatus(`AI is calling \n  ${data.tool}...`);
+            }
+
+            if (data.chunk) {
+              setIsChatLoading(false);
+              setToolStatus(null);
+              setChatMessages((prev) => {
+                const last = prev[prev.length - 1];
+                return [
+                  ...prev.slice(0, -1),
+                  { ...last, content: last.content + data.chunk },
+                ];
+              });
+            }
+
+            if (data.error) {
+              setIsChatLoading(false);
+              setToolStatus(null);
+              setChatMessages((prev) => [
+                ...prev.slice(0, -1),
+                { role: "assistant", content: data.error },
+              ]);
+            }
+
+            if (data.done) {
+              setConvId(data.conversation_id);
+              loadTodos();
+            }
+          } catch (e) {
+            console.error("Error parsing stream chunk", e);
+          }
+        }
+      }
     } catch (err) {
+      setIsChatLoading(false);
+      setToolStatus(null);
       console.error(err);
     }
   };
@@ -199,7 +277,9 @@ export default function DashboardPage() {
       <div className="max-w-xl mx-auto px-6 pt-12 relative z-10">
         <header className="flex justify-between items-start mb-10">
           <div>
-            <h1 className="text-3xl font-black text-white mb-1">Focus</h1>
+            <h1 className="text-3xl font-black text-white mb-1 tracking-tight">
+              Focus
+            </h1>
             <p className="text-slate-500 text-xs font-bold tracking-widest">
               {user?.email}
             </p>
@@ -352,7 +432,7 @@ export default function DashboardPage() {
           <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 rounded-t-2xl">
             <div className="flex items-center gap-2">
               <h4 className="font-black text-[10px] uppercase tracking-widest text-indigo-400">
-                Focus ChatKit
+                Focus AI
               </h4>
             </div>
             <button
@@ -366,9 +446,13 @@ export default function DashboardPage() {
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3 text-[12px] bg-slate-950">
             {chatMessages.length === 0 && (
-              <p className="text-slate-600 text-center mt-10 italic">
-                How can I help you today?
-              </p>
+              <div className="p-3 bg-slate-800/40 rounded-xl text-slate-300">
+                Hello{" "}
+                <span style={{ color: "#00ff41", fontWeight: "bold" }}>
+                  {user?.name || "User"}
+                </span>
+                ! I'm your AI assistant for the Focus Todo App.
+              </div>
             )}
             {chatMessages.map((m, i) => (
               <div
@@ -386,6 +470,22 @@ export default function DashboardPage() {
                 </span>
               </div>
             ))}
+            {/* Thinking Indicator */}
+            {isChatLoading && !toolStatus && (
+              <div className="ml-2 text-[#6366f1] animate-pulse text-sm">
+                &gt; System thinking...
+              </div>
+            )}
+
+            {/* Tool Status - Shows whenever a tool is active, independent of loading state */}
+            {toolStatus && (
+              <div
+                className="ml-2 text-[#00ff41] animate-pulse text-sm"
+                style={{ whiteSpace: "pre-wrap" }}
+              >
+                {toolStatus}
+              </div>
+            )}
           </div>
 
           <div className="p-4 border-t border-slate-800 flex gap-2 bg-slate-900">
@@ -483,3 +583,4 @@ export default function DashboardPage() {
     </main>
   );
 }
+
