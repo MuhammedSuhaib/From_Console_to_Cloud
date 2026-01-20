@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import StreamingResponse
 from sqlmodel import Session, select, func
 from models import Conversation, Message, UserContext
@@ -74,32 +74,19 @@ async def delete_conversation(
 
     # Get the conversation to ensure it belongs to the user
     conversation = session.get(Conversation, conversation_id)
-    if not conversation:
+    if not conversation or conversation.user_id != user_id:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    if conversation.user_id != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this conversation")
-
-    # Delete all messages in the conversation first (due to foreign key constraint)
-    messages_to_delete = session.exec(
-        select(Message)
-        .where(Message.conversation_id == conversation_id)
-    ).all()
-
-    for message in messages_to_delete:
-        session.delete(message)
-
-    # Delete the conversation
     session.delete(conversation)
     session.commit()
-
     return {"message": "Conversation deleted successfully"}
-
 
 @router.get("/{user_id}/history")
 async def get_chat_history(
     user_id: str,
     conversation_id: Optional[int] = None,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     session: Session = Depends(get_session),
     auth_id: str = Depends(get_current_user_id),
 ):
@@ -110,8 +97,27 @@ async def get_chat_history(
     if conversation_id:
         query = query.where(Message.conversation_id == conversation_id)
 
-    messages = session.exec(query.order_by(Message.created_at.asc())).all()
-    return {"messages": [{"role": m.role, "content": m.content} for m in messages]}
+    # Get the latest slice (DESC)
+    messages = session.exec(
+        query.order_by(Message.created_at.desc()).offset(offset).limit(limit)
+    ).all()
+
+    # Reverse the slice so it's oldest -> newest for the UI
+    messages.reverse()
+
+    total_count = session.exec(
+        select(func.count(Message.id)).where(Message.user_id == user_id).where(Message.conversation_id == conversation_id) if conversation_id else select(func.count(Message.id)).where(Message.user_id == user_id)
+    ).one()
+
+    return {
+        "messages": [{"role": m.role, "content": m.content, "created_at": m.created_at.isoformat()} for m in messages],
+        "pagination": {
+            "total": total_count,
+            "has_more": offset + limit < total_count,
+            "next_offset": offset + limit if offset + limit < total_count else None,
+            "prev_offset": max(0, offset - limit) if offset > 0 else None
+        }
+    }
 
 @router.post("/{user_id}/chat")
 async def chat_endpoint(
@@ -144,19 +150,13 @@ async def chat_endpoint(
     # Map DB messages to format
     history = [{"role": m.role, "content": m.content} for m in existing_messages]
 
-    # 2. Store current user message in Neon
-    session.add(
-        Message(conversation_id=conversation_id, user_id=user_id, role="user", content=user_msg)
-    )
+    # 2. Store current user message
+    session.add(Message(conversation_id=conversation_id, user_id=user_id, role="user", content=user_msg))
     session.commit()
 
-    # Fetch real name from the 'user' table managed by Better Auth
-    db_user = session.execute(
-        sqlalchemy.text('SELECT name FROM "user" WHERE id = :uid'),
-        {"uid": user_id}
-    ).fetchone()
+    # Fetch real name
+    db_user = session.execute(sqlalchemy.text('SELECT name FROM "user" WHERE id = :uid'), {"uid": user_id}).fetchone()
     user_name = db_user[0] if db_user else "User"
-
     user_ctx = UserContext(name=user_name, uid=user_id)
     
     # 3. Prepare combined history and new message
@@ -170,46 +170,26 @@ async def chat_endpoint(
         full_response = ""
         try:
             with trace(workflow_name="Focus AI Assistant", group_id=str(target_conv_id)):
-                # Runner.run_streamed returns a RunResultStreaming object
-                result = Runner.run_streamed(
-                    Todo_Agent,
-                    messages_to_process,
-                    context=user_ctx
-                )
-                
-                # Iterate over the events using .stream_events()
+                result = Runner.run_streamed(Todo_Agent, messages_to_process, context=user_ctx)
                 async for event in result.stream_events():
-                    # Detect Tool Execution Status - Fix: use event.item.name
                     if event.type == "run_item_stream_event" and event.name == "tool_called":
-                        t_name = getattr(event.item, 'name', 'task')
-                        yield f"data: {json.dumps({'tool': t_name})}\n\n"
+                        yield f"data: {json.dumps({'tool': event.item.name})}\n\n"
 
-                    # Detect Text Chunks
                     if event.type == "raw_response_event" and isinstance(event.data, ResponseTextDeltaEvent):
                         chunk = event.data.delta
                         if chunk:
                             full_response += chunk
                             yield f"data: {json.dumps({'chunk': chunk})}\n\n"
             
-            # 4. Store assistant response in Neon after stream completes
             with Session(engine) as new_session:
-                new_session.add(
-                    Message(
-                        conversation_id=target_conv_id, 
-                        user_id=target_user_id, 
-                        role="assistant", 
-                        content=full_response
-                    )
-                )
+                new_session.add(Message(conversation_id=target_conv_id, user_id=target_user_id, role="assistant", content=full_response))
                 new_session.commit()
             
             yield f"data: {json.dumps({'done': True, 'conversation_id': target_conv_id})}\n\n"
 
         except openai.RateLimitError:
-            yield f"data: {json.dumps({'error': 'Gemini quota exceeded (429). Please wait a moment.'})}\n\n"
+            yield f"data: {json.dumps({'error': 'Gemini quota exceeded (429).'})}\n\n"
         except Exception as e:
-            import logging
-            logging.error(f"Streaming Error: {str(e)}")
             yield f"data: {json.dumps({'error': 'AI processing failed'})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

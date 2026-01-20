@@ -369,6 +369,130 @@ The API allows requests from:
 - `http://localhost:3000` (development)
 - `[Production frontend URL]` (production)
 
+## Chat Endpoints
+
+### Get Chat History
+`GET /api/{user_id}/history`
+
+Retrieve chat history for the authenticated user, with optional pagination and conversation filtering.
+
+**Headers:**
+```
+Authorization: Bearer <jwt-token>
+```
+
+**Path Parameters:**
+- `user_id` (string): The ID of the user whose history to retrieve
+
+**Query Parameters:**
+- `conversation_id` (optional, integer): Filter history by specific conversation ID
+- `limit` (optional, integer): Number of messages to return (default: 20, min: 1, max: 100)
+- `offset` (optional, integer): Number of messages to skip (default: 0)
+
+**Response (200 OK):**
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hello, how can I add a task?",
+      "created_at": "2024-01-01T10:00:00Z"
+    },
+    {
+      "role": "assistant",
+      "content": "You can say 'Add a task called test'",
+      "created_at": "2024-01-01T10:01:00Z"
+    }
+  ],
+  "pagination": {
+    "limit": 20,
+    "offset": 0,
+    "total": 50,
+    "has_more": true,
+    "next_offset": 20,
+    "prev_offset": null
+  }
+}
+```
+
+### Chat Endpoint
+`POST /api/{user_id}/chat`
+
+Send a message to the AI assistant and receive a streamed response with tool calls.
+
+**Headers:**
+```
+Authorization: Bearer <jwt-token>
+Content-Type: application/json
+```
+
+**Path Parameters:**
+- `user_id` (string): The ID of the user sending the message
+
+**Request Body:**
+```json
+{
+  "message": "Add a task called 'Buy groceries'",
+  "conversation_id": 123
+}
+```
+
+**Response (200 OK with SSE stream):**
+Streamed response containing:
+- Tool calls: `data: {"tool": "add_task"}`
+- Text chunks: `data: {"chunk": "Sure, I'll add that task for you."}`
+- Completion: `data: {"done": true, "conversation_id": 124}`
+- Errors: `data: {"error": "Error message"}`
+
+### Get All Conversations
+`GET /api/{user_id}/conversations`
+
+Retrieve all conversations for the authenticated user.
+
+**Headers:**
+```
+Authorization: Bearer <jwt-token>
+```
+
+**Path Parameters:**
+- `user_id` (string): The ID of the user whose conversations to retrieve
+
+**Response (200 OK):**
+```json
+{
+  "conversations": [
+    {
+      "id": 123,
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T15:30:00Z",
+      "preview": "Add a task called 'Buy groceries'...",
+      "message_count": 5
+    }
+  ]
+}
+```
+
+### Delete Conversation
+`DELETE /api/{user_id}/conversations/{conversation_id}`
+
+Delete a specific conversation and all its messages.
+
+**Headers:**
+```
+Authorization: Bearer <jwt-token>
+```
+
+**Path Parameters:**
+- `user_id` (string): The ID of the user
+- `conversation_id` (integer): The ID of the conversation to delete
+
+**Response (200 OK):**
+```json
+{
+  "message": "Conversation deleted successfully"
+}
+```
+
 ## Testing API Endpoints
 
 You can test the API endpoints using tools like Postman, curl, or directly in your application:
@@ -385,4 +509,15 @@ curl -X POST \
      -H "Content-Type: application/json" \
      -d '{"title":"Test Task","description":"Test description","status":"pending"}' \
      http://localhost:8000/api/tasks
+
+# Get chat history
+curl -H "Authorization: Bearer <your-jwt-token>" \
+     "http://localhost:8000/api/user123/history?limit=10&offset=0"
+
+# Send a chat message
+curl -X POST \
+     -H "Authorization: Bearer <your-jwt-token>" \
+     -H "Content-Type: application/json" \
+     -d '{"message":"Add a task called test","conversation_id":123}' \
+     http://localhost:8000/api/user123/chat
 ```

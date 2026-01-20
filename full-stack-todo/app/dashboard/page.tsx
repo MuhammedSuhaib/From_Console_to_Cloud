@@ -21,6 +21,9 @@ import {
   Zap,
   History,
   Trash,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { StatBox, PriorityBtn } from "./../../components/DashboardUI";
 
@@ -49,6 +52,10 @@ export default function DashboardPage() {
   const [showConversations, setShowConversations] = useState(false);
   const [allConversations, setAllConversations] = useState<any[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
+  
+  // Pagination state for chat history
+  const [messageOffset, setMessageOffset] = useState(0);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -57,8 +64,8 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    if (isChatOpen) scrollToBottom();
-  }, [chatMessages, toolStatus, isChatOpen]);
+    if (isChatOpen && messageOffset === 0) scrollToBottom();
+  }, [chatMessages, toolStatus, isChatOpen, messageOffset]);
 
   // ChatKit Integration
   const getClientSecret = useMemo(() => {
@@ -126,12 +133,22 @@ export default function DashboardPage() {
     }
   }, [user?.id]);
 
-  // Fetch Chat History
-  const loadChatHistory = useCallback(async () => {
+  // Fetch Chat History with pagination
+  const loadChatHistory = useCallback(async (offset = 0) => {
     if (!user?.id) return;
+
     try {
+      const params = new URLSearchParams({
+        limit: '20',
+        offset: offset.toString()
+      });
+
+      if (convId) {
+        params.append('conversation_id', convId.toString());
+      }
+
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user.id}/history`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user.id}/history?${params}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
@@ -139,52 +156,33 @@ export default function DashboardPage() {
         },
       );
       const data = await res.json();
-      if (data.messages) setChatMessages(data.messages);
+
+      if (data.messages) {
+        setChatMessages(data.messages);
+        setMessageOffset(offset);
+        setHasMoreMessages(data.pagination.has_more);
+      }
     } catch (err) {
       console.error("Failed to load chat history:", err);
     }
-  }, [user?.id]);
+  }, [user?.id, convId]);
 
   // Load Specific Conversation
   const loadSpecificConversation = async (conversationId: number) => {
     if (!user?.id) return;
 
-    // Show immediate loading feedback
     setChatMessages([
       { role: "assistant", content: "Switching to conversation..." },
     ]);
     setConvId(conversationId);
-    setShowConversations(false); // Close the conversations sidebar
-
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user.id}/history?conversation_id=${conversationId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-          },
-        },
-      );
-      const data = await res.json();
-      if (data.messages) {
-        setChatMessages(data.messages);
-      }
-    } catch (err) {
-      console.error("Failed to load specific conversation:", err);
-      setChatMessages([
-        {
-          role: "assistant",
-          content: "Error loading conversation. Please try again.",
-        },
-      ]);
-    }
+    setShowConversations(false);
+    await loadChatHistory(0);
   };
 
   // Delete Specific Conversation
   const deleteSpecificConversation = async (conversationId: number) => {
     if (!user?.id) return;
 
-    // Show immediate feedback
     setAllConversations((prev) =>
       prev.filter((conv) => conv.id !== conversationId),
     );
@@ -226,6 +224,8 @@ export default function DashboardPage() {
     setChatMessages([]);
     const currentConvId = convId; // Store current convId before clearing
     setConvId(null);
+    setMessageOffset(0);
+    setHasMoreMessages(true);
 
     try {
       if (currentConvId) {
@@ -260,7 +260,7 @@ export default function DashboardPage() {
 
   // Trigger history load when chat is toggled open
   useEffect(() => {
-    if (isChatOpen) loadChatHistory();
+    if (isChatOpen) loadChatHistory(0);
   }, [isChatOpen, loadChatHistory]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -600,11 +600,30 @@ export default function DashboardPage() {
             </h4>
             <div className="flex gap-3 sm:gap-2">
               <button
+                title="Older Messages"
+                aria-label="Older Messages"
+                disabled={!hasMoreMessages}
+                onClick={() => loadChatHistory(messageOffset + 20)}
+                className="text-slate-500 hover:text-indigo-400 disabled:opacity-30"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                title="Newer Messages"
+                aria-label="Newer Messages"
+                disabled={messageOffset === 0}
+                onClick={() => loadChatHistory(Math.max(0, messageOffset - 20))}
+                className="text-slate-500 hover:text-indigo-400 disabled:opacity-30"
+              >
+                <ChevronRight size={16} />
+              </button>
+              <button
                 title="New Conversation"
                 aria-label="New Conversation"
                 onClick={() => {
                   setConvId(null);
                   setChatMessages([]);
+                  setMessageOffset(0);
                 }}
                 className="text-slate-500 hover:text-indigo-400"
               >
