@@ -6,17 +6,65 @@ from database import get_session, engine
 from auth.jwt import get_current_user_id
 from todo_agent.todo_agent import Todo_Agent
 from agents import Runner, set_tracing_export_api_key, trace
+from agents.memory.session import SessionABC
+from agents.items import TResponseInputItem
 from openai.types.responses import ResponseTextDeltaEvent
 import os
 import json
 import openai
 import sqlalchemy
-from typing import Optional
+from typing import Optional, List
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
 # Initialize tracing globally
 set_tracing_export_api_key(os.getenv('Tracing_key'))
+
+class NeonSession(SessionABC):
+    def __init__(self, db: Session, conversation_id: int, user_id: str):
+        self.db = db
+        self.conversation_id = conversation_id
+        self.user_id = user_id
+
+    async def get_items(self, limit: int | None = None) -> List[TResponseInputItem]:
+        query = select(Message).where(Message.conversation_id == self.conversation_id).order_by(Message.created_at.asc())
+        if limit: query = query.limit(limit)
+        messages = self.db.exec(query).all()
+        return [{"role": m.role, "content": m.content} for m in messages]
+
+    async def add_items(self, items: List[TResponseInputItem]) -> None:
+        for item in items:
+            if item.get("role") in ["user", "assistant"]:
+                content = item.get("content")
+                if isinstance(content, list):
+                    # Extracts plain text from the list of blocks (text or output_text)
+                    # and joins them into a single string
+                    final_text = "".join(b["text"] for b in content if b.get("type") in ["text", "output_text"])
+                else:
+                    final_text = str(content)
+
+                if final_text.strip():
+                    msg = Message(
+                        conversation_id=self.conversation_id,
+                        user_id=self.user_id,
+                        role=item["role"],
+                        content=final_text
+                    )
+                    self.db.add(msg)
+        self.db.commit()
+
+    async def pop_item(self) -> TResponseInputItem | None:
+        last_msg = self.db.exec(select(Message).where(Message.conversation_id == self.conversation_id).order_by(Message.created_at.desc())).first()
+        if last_msg:
+            item = {"role": last_msg.role, "content": last_msg.content}
+            self.db.delete(last_msg)
+            self.db.commit()
+            return item
+        return None
+
+    async def clear_session(self) -> None:
+        self.db.exec(sqlalchemy.text('DELETE FROM message WHERE conversation_id = :c'), {"c": self.conversation_id})
+        self.db.commit()
 
 @router.get("/{user_id}/conversations")
 async def get_all_conversations(
@@ -133,6 +181,11 @@ async def chat_endpoint(
     user_msg = body.get("message", "")
     conversation_id = body.get("conversation_id")
 
+    # Verify conversation exists if provided
+    if conversation_id:
+        if not session.get(Conversation, conversation_id):
+            conversation_id = None
+
     if not conversation_id:
         conv = Conversation(user_id=user_id)
         session.add(conv)
@@ -140,37 +193,24 @@ async def chat_endpoint(
         session.refresh(conv)
         conversation_id = conv.id
 
-    # 1. Fetch History from Neon
-    existing_messages = session.exec(
-        select(Message)
-        .where(Message.conversation_id == conversation_id)
-        .order_by(Message.created_at.asc())
-    ).all()
-
-    # Map DB messages to format
-    history = [{"role": m.role, "content": m.content} for m in existing_messages]
-
-    # 2. Store current user message
-    session.add(Message(conversation_id=conversation_id, user_id=user_id, role="user", content=user_msg))
-    session.commit()
-
     # Fetch real name
     db_user = session.execute(sqlalchemy.text('SELECT name FROM "user" WHERE id = :uid'), {"uid": user_id}).fetchone()
     user_name = db_user[0] if db_user else "User"
     user_ctx = UserContext(name=user_name, uid=user_id)
     
-    # 3. Prepare combined history and new message
-    messages_to_process = history + [{"role": "user", "content": user_msg}]
-    
-    # Capture IDs for the generator closure
-    target_conv_id = conversation_id
-    target_user_id = user_id
+    # Initialize custom SDK session
+    neon_session = NeonSession(session, conversation_id, user_id)
 
     async def event_generator():
-        full_response = ""
         try:
-            with trace(workflow_name="Focus AI Assistant", group_id=str(target_conv_id)):
-                result = Runner.run_streamed(Todo_Agent, messages_to_process, context=user_ctx)
+            with trace(workflow_name="Focus AI Assistant", group_id=str(conversation_id)):
+                # Runner handles history retrieval and persistence via neon_session
+                result = Runner.run_streamed(
+                    Todo_Agent, 
+                    user_msg, 
+                    context=user_ctx, 
+                    session=neon_session
+                )
                 async for event in result.stream_events():
                     if event.type == "run_item_stream_event" and event.name == "tool_called":
                         yield f"data: {json.dumps({'tool': event.item.name})}\n\n"
@@ -178,18 +218,13 @@ async def chat_endpoint(
                     if event.type == "raw_response_event" and isinstance(event.data, ResponseTextDeltaEvent):
                         chunk = event.data.delta
                         if chunk:
-                            full_response += chunk
                             yield f"data: {json.dumps({'chunk': chunk})}\n\n"
             
-            with Session(engine) as new_session:
-                new_session.add(Message(conversation_id=target_conv_id, user_id=target_user_id, role="assistant", content=full_response))
-                new_session.commit()
-            
-            yield f"data: {json.dumps({'done': True, 'conversation_id': target_conv_id})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'conversation_id': conversation_id})}\n\n"
 
         except openai.RateLimitError:
             yield f"data: {json.dumps({'error': 'Gemini quota exceeded (429).'})}\n\n"
         except Exception as e:
-            yield f"data: {json.dumps({'error': 'AI processing failed'})}\n\n"
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

@@ -46,7 +46,13 @@ export default function DashboardPage() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<any[]>([]);
-  const [convId, setConvId] = useState<number | null>(null);
+  const [convId, setConvId] = useState<number | null>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("active_conv_id");
+      return saved ? Number(saved) : null;
+    }
+    return null;
+  });
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [showConversations, setShowConversations] = useState(false);
@@ -66,6 +72,15 @@ export default function DashboardPage() {
   useEffect(() => {
     if (isChatOpen && messageOffset === 0) scrollToBottom();
   }, [chatMessages, toolStatus, isChatOpen, messageOffset]);
+
+  // Persist convId to localStorage
+  useEffect(() => {
+    if (convId) {
+      localStorage.setItem("active_conv_id", convId.toString());
+    } else {
+      localStorage.removeItem("active_conv_id");
+    }
+  }, [convId]);
 
   // ChatKit Integration
   const getClientSecret = useMemo(() => {
@@ -145,6 +160,10 @@ export default function DashboardPage() {
 
       if (convId) {
         params.append('conversation_id', convId.toString());
+      } else {
+        // If no convId, we have no history to load
+        setChatMessages([]);
+        return;
       }
 
       const res = await fetch(
