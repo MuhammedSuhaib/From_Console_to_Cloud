@@ -136,7 +136,13 @@
       "Bash(git reset history/prompts/003-ai-chatbot/0015-ai-api-keys-testing.infrastructure.prompt.md)",
       "Bash(git reset:*)",
       "Bash(git add history/prompts/003-ai-chatbot/0017-phase-iii-input-output-validation-and-response-format.feature.prompt.md)",
-      "Bash(git add backend/schemas/input_output_validation.py)"
+      "Bash(git add backend/schemas/input_output_validation.py)",
+      "Bash(find backend/tests/ -name \"*.py\" -exec grep -l \"mcp\\\\|chat\\\\|tool\" {} ;)",
+      "Bash(find . -name \"*.py\" -exec grep -l \"add_task\\\\|list_tasks\\\\|complete_task\\\\|delete_task\\\\|update_task\" {} ;)",
+      "Bash(find backend/ -name \"*test*\" -exec grep -l \"add_task\\\\|list_tasks\\\\|complete_task\\\\|delete_task\\\\|update_task\" {} ;)",
+      "Bash(dir /s /b D:VScodeGitHubFrom_Console_to_Cloudhistory)",
+      "Bash(powershell \"Get-ChildItem -Path ''D:\\\\VScode\\\\GitHub\\\\From_Console_to_Cloud\\\\history'' -Recurse -Name\")",
+      "Bash(powershell \"Get-ChildItem -Path ''D:\\\\VScode\\\\GitHub\\\\From_Console_to_Cloud\\\\history\\\\prompts\\\\003-ai-chatbot\\\\'' -Filter ''*.prompt.md'' | Sort-Object Name | Select-Object -Last 1\")"
     ]
   }
 }
