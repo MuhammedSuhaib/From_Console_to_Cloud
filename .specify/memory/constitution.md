@@ -554,10 +554,16 @@ Tool: update_task
 - Agentic Dev Stack workflow: Spec → Plan → Tasks → Implement via Claude Code
 
 **Phase IV**: Cloud-Native Distributed
-- Microservices architecture
-- Event-driven design (Kafka/RabbitMQ)
-- Kubernetes deployment
-- Scalability and fault tolerance
+- Containerize frontend and backend applications using Docker
+- Use Docker AI Agent (Gordon) for AI-assisted Docker operations where available
+- Deploy on local Kubernetes cluster using Minikube
+- Create and manage deployments using Helm Charts
+- Use kubectl-ai and Kagent for AI-assisted Kubernetes operations
+- Implement scalable architecture with proper resource allocation
+- Ensure fault tolerance and service discovery
+- Implement health checks and monitoring
+- Use Docker Desktop for container management
+- Deploy with basic cloud-native patterns and practices
 
 **Phase V**: Enterprise Features
 - Multi-tenancy
