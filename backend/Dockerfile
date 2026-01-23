@@ -1,24 +1,58 @@
-FROM python:3.10-slim
+# Multi-stage Dockerfile for FastAPI with uv
+# Stage 1: Builder - Install dependencies with uv
+FROM python:3.12-slim AS builder
 
-# 1. Install uv efficiently from the official image
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# 2. Set working directory
+# Set working directory
 WORKDIR /app
 
-# 3. Copy requirements first for better caching
-COPY requirements.txt .
-
-# 4. Install dependencies into the system environment
-# This is where the fix is: added --system
-RUN uv pip install --system -r requirements.txt
-
-# 5. Copy the rest of the backend code
-COPY . .
-
-# 6. Set environment variables
-ENV PORT=7860
+# Set environment variables for uv and Python
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# 7. Start the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
+# Copy dependency files
+COPY requirements.txt ./
+
+# Create virtual environment and install dependencies
+RUN uv venv /opt/venv && \
+    . /opt/venv/bin/activate && \
+    uv pip install --no-cache -r requirements.txt
+
+# Stage 2: Runner - Production image
+FROM python:3.12-slim AS runner
+
+# Set working directory
+WORKDIR /app
+
+# Create non-root user for security
+RUN groupadd --gid 1001 appuser && \
+    useradd --uid 1001 --gid 1001 --shell /bin/bash --create-home appuser
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PATH="/opt/venv/bin:$PATH"
+ENV PYTHONPATH=/app
+
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+
+# Copy application code
+COPY --chown=appuser:appuser . .
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()" || exit 1
+
+# Start the application with uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
