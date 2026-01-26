@@ -40,6 +40,14 @@ Specifications are organized in `specs/`:
 - Database: Neon Serverless PostgreSQL
 - Authentication: Better Auth with JWT tokens
 
+## Communication Guidelines (Human-in-the-Loop)
+1. **Prioritize Audio**: You MUST use the speaking script for all status updates, questions, and permission requests. Do not rely solely on terminal text.
+2. **Execution Command**: Always use: `powershell -Command "& 'D:\VScode\GitHub\From_Console_to_Cloud\.specify\scripts\bash\speak.bat' 'YOUR_MESSAGE_HERE'"`
+3. **Context**: Use this when:
+   - A long-running task (like Minikube start or Docker build) finishes.
+   - You need user input or permission.
+   - You encounter a critical error.
+   - You are switching between frontend and backend tasks.
 
 ## PHR (Prompt History Record) Guidelines
 When creating PHRs, follow these rules:

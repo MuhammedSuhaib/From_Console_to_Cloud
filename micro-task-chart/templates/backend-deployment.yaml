@@ -35,26 +35,44 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default .Chart.AppVersion }}"
+          # This shell command forces the expansion of DB_USER and DB_PASSWORD
+          command: ["/bin/sh", "-c"]
+          args:
+            - >
+              export DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres-db:5432/{{ .Values.database.postgresDatabase }} &&
+              uvicorn main:app --host 0.0.0.0 --port 8000
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.backend.service.targetPort }}
+              containerPort: 8000
               protocol: TCP
           env:
-            - name: DATABASE_URL
-              value: {{ .Values.backend.env.DATABASE_URL | quote }}
             - name: BETTER_AUTH_SECRET
               value: {{ .Values.backend.env.BETTER_AUTH_SECRET | quote }}
-            - name: PORT
-              value: "8000"
+            - name: GEMINI_API_KEY
+              value: {{ .Values.backend.env.GEMINI_API_KEY | quote }}
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "micro-task-chart.fullname" . }}
+                  key: db-user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "micro-task-chart.fullname" . }}
+                  key: db-password
           livenessProbe:
             httpGet:
               path: /health
               port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /health
               port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

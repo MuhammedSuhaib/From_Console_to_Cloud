@@ -28,19 +28,19 @@ export default function SignInPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#020617] px-6">
-      <div className="max-w-sm w-full space-y-8 bg-slate-900/50 p-8 rounded-3xl border border-slate-800">
-        <h2 className="text-3xl font-black text-white text-center">Welcome back</h2>
+      <div className="max-w-sm w-full space-y-8 bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-10">
+        <h2 className="text-3xl font-black text-indigo-400 text-center">Welcome back</h2>
         <form className="space-y-4" onSubmit={handleSubmit}>
           {error && <div className="p-3 bg-red-500/10 border border-red-500/50 text-red-500 rounded-xl text-xs font-bold text-center">{error}</div>}
           <div className="relative">
             <Mail className="absolute left-4 top-4 text-slate-500" size={18} />
-            <input type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-12 pr-5 py-4 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" />
+            <input type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-12 pr-5 py-4 bg-slate-950 border border-slate-800 rounded-lg text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" />
           </div>
           <div className="relative">
             <KeyRound className="absolute left-4 top-4 text-slate-500" size={18} />
-            <input type="password" required placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-12 pr-5 py-4 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" />
+            <input type="password" required placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-12 pr-5 py-4 bg-slate-950 border border-slate-800 rounded-lg text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" />
           </div>
-          <button type="submit" disabled={loading} className="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition-all disabled:opacity-50 flex justify-center items-center gap-2">
+          <button type="submit" disabled={loading} className="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-500 transition-all disabled:opacity-50 flex justify-center items-center gap-2">
             {loading ? <Loader2 className="animate-spin" size={20} /> : "Sign In"}
           </button>
         </form>

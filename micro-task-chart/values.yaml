@@ -21,8 +21,10 @@ frontend:
     #   cpu: 100m
     #   memory: 128Mi
   env:
-    NEXT_PUBLIC_API_BASE_URL: "http://micro-task-chart-backend:8000"
-    NEXT_PUBLIC_BETTER_AUTH_URL: "http://micro-task-chart-backend:8000"
+    NEXT_PUBLIC_API_BASE_URL: "http://todo-app.local"
+    NEXT_PUBLIC_BETTER_AUTH_URL: "http://todo-app.local"
+  autoscaling:
+    enabled: false
 
 backend:
   replicaCount: 1
@@ -43,8 +45,11 @@ backend:
     #   cpu: 100m
     #   memory: 128Mi
   env:
-    DATABASE_URL: "postgresql://postgres:postgres@todo-postgres:5432/todo_app"
     BETTER_AUTH_SECRET: "dev-secret-change-in-production"
+    GEMINI_API_KEY: ""
+    TRACING_KEY: ""
+  autoscaling:
+    enabled: false
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
@@ -84,16 +89,16 @@ securityContext: {}
 
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
-  enabled: false
+  enabled: true
   className: ""
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
+  annotations:
+    kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
   hosts:
-    - host: chart-example.local
+    - host: todo-app.local
       paths:
         - path: /
-          pathType: ImplementationSpecific
+          pathType: Prefix
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
@@ -148,6 +153,37 @@ resources: {}
   # requests:
   #   cpu: 100m
   #   memory: 128Mi
+
+# Database configuration
+database:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: postgres
+    tag: "15"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 5432
+  postgresDatabase: "todo_app"
+  postgresUser: "postgres"
+  postgresPassword: "postgres"
+  secretKeys:
+    user: "db-user"
+    password: "db-password"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  persistence:
+    enabled: true
+    size: 8Gi
+    storageClass: ""
+  # Set to true if using an existing secret
+  existingSecret: ""
 
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 livenessProbe:
