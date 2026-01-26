@@ -34,10 +34,17 @@ Strip the default `<main>` content from the entry page.
 - Remove the Vercel/Next.js logo links at the bottom.
 - **Constraint:** Do NOT modify `globals.css` or Tailwind configurations unless explicitly asked.
 
-## 3. Deployment Cleanup
+## 3. Documentation Cleanup
+Update the README.md file to replace generic Next.js boilerplate content with project-specific information:
+- Replace the default "This is a [Next.js](https://nextjs.org) project" title and description with actual project title and description
+- Update the "Getting Started" section if needed to reflect actual project setup
+- Remove generic Next.js documentation links section if not relevant
+- Add project-specific features, technologies, and information
+
+## 4. Deployment Cleanup
 Ensure the project doesn't have hidden branding in:
 - **`manifest.json`**: Ensure icons don't point to default Next.js assets.
 - **`apple-touch-icon.png`**: Standard boilerplate check.
 
-## 4. Scripted Execution
+## 5. Scripted Execution
 When asked to "Automate the cleanup," provide the Bash script located in [cleanup-automation.sh](assets/cleanup-automation.sh).

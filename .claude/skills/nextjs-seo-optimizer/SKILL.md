@@ -49,6 +49,8 @@ Implement these as TypeScript files in the root of `/app`.
 - **Robots:** Define crawling rules and link to sitemap. See [robots-template.ts](assets/robots-template.ts).
 - **Sitemap:** Dynamically list all URLs for discovery. See [sitemap-template.ts](assets/sitemap-template.ts).
 
+**Important for Static Export:** When using `output: 'export'` in your `next.config.js` (Static Site Generation mode), you must add `export const dynamic = 'force-static';` at the top of your sitemap.ts and robots.ts files to ensure they are treated as static during the build process.
+
 ## Structured Data (JSON-LD)
 Inject JSON-LD into the page to enable Rich Results (star ratings, prices).
 ```typescript

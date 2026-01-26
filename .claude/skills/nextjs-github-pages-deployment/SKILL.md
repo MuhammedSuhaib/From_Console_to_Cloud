@@ -55,7 +55,38 @@ Replace all absolute paths in your project with relative paths. This is crucial 
 3. **JavaScript imports**: Change from `/components/` to `./components/`
 4. **Asset links**: Change from `/assets/` to `./assets/`
 
-## Step 3: Commit and Push Changes
+## Step 3: Handle Static Export Compatibility Issues
+
+When using output: 'export' in your next.config.js (Static Site Generation mode), Next.js requires that automated routes like sitemap.xml and robots.txt be explicitly marked as static.
+
+For any route handlers you create (like sitemap.ts, robots.ts), you must add this line at the top:
+
+```typescript
+export const dynamic = 'force-static';
+```
+
+For example:
+```typescript
+import { MetadataRoute } from 'next'
+
+// Add this line for Static Export support
+export const dynamic = 'force-static';
+
+export default function sitemap(): MetadataRoute.Sitemap {
+  return [
+    {
+      url: 'https://yourdomain.com',
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 1,
+    },
+  ]
+}
+```
+
+This tells Next.js that these routes should be treated as static during the build process, preventing build failures.
+
+## Step 4: Commit and Push Changes
 
 After making configuration and path changes, commit your changes and push them to GitHub:
 
@@ -65,7 +96,7 @@ git commit -m "feat: Configure Next.js for GitHub Pages deployment"
 git push origin main
 ```
 
-## Step 4: Configure GitHub Pages
+## Step 5: Configure GitHub Pages
 
 1. Go to your repository on GitHub
 2. Reload the page to see the new files and changes
