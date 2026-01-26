@@ -1,0 +1,20 @@
+{{- if .Values.database.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-db-init-scripts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: postgres-db
+    {{- include "micro-task-chart.labels" . | nindent 4 }}
+data:
+  init.sql: |
+    -- Initialize the todo_app database
+    CREATE SCHEMA IF NOT EXISTS public;
+
+    -- Extension for UUID generation if needed
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+    -- Any additional initialization SQL can go here
+    GRANT ALL PRIVILEGES ON DATABASE {{ .Values.database.postgresDatabase }} TO {{ .Values.database.postgresUser }};
+{{- end }}

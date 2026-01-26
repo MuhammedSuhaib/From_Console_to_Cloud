@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-db
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: postgres-db
+    {{- include "micro-task-chart.labels" . | nindent 4 }}
+spec:
+  serviceName: postgres-db-headless
+  replicas: {{ .Values.database.replicaCount }}
+  selector:
+    matchLabels:
+      app: postgres-db
+      {{- include "micro-task-chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: postgres-db
+        {{- include "micro-task-chart.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: postgres
+        image: "{{ .Values.database.image.repository }}:{{ .Values.database.image.tag }}"
+        imagePullPolicy: {{ .Values.database.image.pullPolicy }}
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_DB
+          value: {{ .Values.database.postgresDatabase | quote }}
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.database.existingSecret | default (include "micro-task-chart.fullname" .) }}
+              key: {{ .Values.database.secretKeys.user | quote }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.database.existingSecret | default (include "micro-task-chart.fullname" .) }}
+              key: {{ .Values.database.secretKeys.password | quote }}
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - pg_isready -U $POSTGRES_USER
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 10
+          failureThreshold: 6
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - pg_isready -U $POSTGRES_USER
+          initialDelaySeconds: 5
+          timeoutSeconds: 3
+          periodSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: postgres-db-data
+          mountPath: /var/lib/postgresql/data
+          subPath: postgres-db
+        resources:
+          {{- toYaml .Values.database.resources | nindent 10 }}
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-db-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: {{ .Values.database.persistence.size }}
+      {{- if .Values.database.persistence.storageClass }}
+      storageClassName: {{ .Values.database.persistence.storageClass }}
+      {{- end }}
