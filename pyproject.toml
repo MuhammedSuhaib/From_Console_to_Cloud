@@ -10,6 +10,7 @@ authors = [{name = "Todo App Developer"}]
 requires-python = ">=3.10"
 license = {text = "MIT"}
 dependencies = [
+    "apscheduler>=3.10.0",
     "bcrypt>=5.0.0",
     "fastapi[standard]>=0.128.0",
     "openai-agents>=0.6.5",
@@ -17,7 +18,9 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "pyjwt>=2.10.1",
     "pytest>=9.0.2",
+    "python-dateutil>=2.9.0.post0",
     "python-jose>=3.5.0",
+    "pywebpush>=2.2.0",
     "questionary>=2.0.0",
     "requests>=2.32.5",
     "rich>=13.0.0",

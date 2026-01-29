@@ -4,43 +4,46 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "./../../context/AuthContext";
 import { api } from "./../../lib/api";
 import { useChatKit } from "@openai/chatkit-react";
-import {
-  LogOut,
-  Plus,
-  Edit3,
-  Trash2,
-  CheckCircle2,
-  Circle,
-  ListTodo,
-  CheckSquare,
-  Clock,
-  Loader2,
-  MessageSquare,
-  Send,
-  X,
-  Zap,
-  History,
-  Trash,
-  RefreshCw,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import { StatBox, PriorityBtn } from "./../../components/DashboardUI";
+import { Loader2 } from "lucide-react";
+import SearchBar from "./../../components/dashboard/SearchBar";
+import FilterSortControls from "./../../components/dashboard/FilterSortControls";
+import TaskModal from "./../../components/dashboard/TaskModal";
+import { FilterSortParams } from "./../../types";
+import { Header } from "./../../components/dashboard/Header";
+import { StatsSection } from "./../../components/dashboard/StatsSection";
+import { TaskList } from "./../../components/dashboard/TaskList";
+import { ChatInterface } from "./../../components/dashboard/ChatInterface";
+import { ConversationsSidebar } from "./../../components/dashboard/ConversationsSidebar";
+import { FloatingActions } from "./../../components/dashboard/FloatingActions";
 
 // ChatKit Configuration Constants
 const WORKFLOW_ID =
   process.env.NEXT_PUBLIC_CHATKIT_WORKFLOW_ID || "wf_placeholder";
 
 export default function DashboardPage() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, subscribeToPushNotifications } = useAuth();
   const [todos, setTodos] = useState<any[]>([]);
+  const [filteredTodos, setFilteredTodos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
+  const [dueDate, setDueDate] = useState<string>("");
+  const [recurrencePattern, setRecurrencePattern] = useState<string>("");
   const [showModal, setShowModal] = useState(false);
   const [editingTodo, setEditingTodo] = useState<any | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingTodos, setIsLoadingTodos] = useState(false);
+  const [searchMode, setSearchMode] = useState<boolean>(false);
+  const [currentFilters, setCurrentFilters] = useState<FilterSortParams>({});
+
+  const [modalState, setModalState] = useState({
+    title: "",
+    description: "",
+    priority: "medium" as "low" | "medium" | "high",
+    due_date: "",
+    recurrence_pattern: "",
+  });
 
   // Chat States
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -113,18 +116,146 @@ export default function DashboardPage() {
 
   const loadTodos = useCallback(async () => {
     try {
+      setLoading(true);
+      setIsLoadingTodos(true);
       const fetchedTodos = await api.getTasks();
       setTodos(Array.isArray(fetchedTodos) ? fetchedTodos : []);
+      setFilteredTodos(Array.isArray(fetchedTodos) ? fetchedTodos : []);
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
+      setIsLoadingTodos(false);
     }
   }, []);
+
+  const handleSearch = async (keyword: string) => {
+    try {
+      setIsLoadingTodos(true);
+      const searchResults = await api.searchTasks(keyword);
+      setFilteredTodos(Array.isArray(searchResults) ? searchResults : []);
+      setSearchMode(true);
+    } catch (error) {
+      console.error("Search error:", error);
+      // Fallback to original todos if search fails
+      setFilteredTodos(todos);
+    } finally {
+      setIsLoadingTodos(false);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setFilteredTodos(todos);
+    setSearchMode(false);
+  };
+
+  const handleApplyFilters = async (filters: FilterSortParams) => {
+    try {
+      setIsLoadingTodos(true);
+      setCurrentFilters(filters);
+      const filteredResults = await api.filterSortTasks(filters);
+      setFilteredTodos(Array.isArray(filteredResults) ? filteredResults : []);
+      setSearchMode(true);
+    } catch (error) {
+      console.error("Filter error:", error);
+      // Fallback to original todos if filter fails
+      setFilteredTodos(todos);
+    } finally {
+      setIsLoadingTodos(false);
+    }
+  };
+
+  const handleResetFilters = () => {
+    setFilteredTodos(todos);
+    setCurrentFilters({});
+    setSearchMode(false);
+  };
 
   useEffect(() => {
     loadTodos();
   }, [loadTodos]);
+
+  // Subscribe to push notifications when user is authenticated
+  useEffect(() => {
+    if (user) {
+      // Delay the subscription to ensure service worker is registered
+      const timer = setTimeout(() => {
+        subscribeToPushNotifications();
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [user, subscribeToPushNotifications]);
+
+  // Request notification permission and set up reminder checks
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+
+    const interval = setInterval(() => {
+      todos.forEach(todo => {
+        if (todo.due_date && !todo.completed && !todo.reminder_sent) {
+          const due = new Date(todo.due_date).getTime();
+          const now = new Date().getTime();
+          const timeDiff = due - now;
+          const hoursDiff = Math.floor(timeDiff / (1000 * 60 * 60));
+
+          // Show notification if task is due within 1 hour
+          if (hoursDiff <= 1 && hoursDiff >= 0) {
+            if (Notification.permission === "granted") {
+              new Notification(`Task Reminder: ${todo.title}`, {
+                body: `Your task "${todo.title}" is due soon!`,
+                icon: "/favicon.ico"
+              });
+
+              // Mark the reminder as sent by calling an API endpoint
+              api.markReminderSent(todo.id)
+                .then(updatedTodo => {
+                  // Update the todos state to reflect the change
+                  setTodos(prevTodos =>
+                    prevTodos.map(t => t.id === todo.id ? updatedTodo : t)
+                  );
+                  setFilteredTodos(prevFiltered =>
+                    prevFiltered.map(t => t.id === todo.id ? updatedTodo : t)
+                  );
+                })
+                .catch(error => {
+                  console.error("Failed to mark reminder as sent:", error);
+                });
+            }
+          }
+
+          // Show notification if task is overdue
+          if (timeDiff < 0) {
+            if (Notification.permission === "granted") {
+              new Notification(`Overdue Task: ${todo.title}`, {
+                body: `Your task "${todo.title}" is overdue!`,
+                icon: "/favicon.ico"
+              });
+
+              // Mark the reminder as sent for overdue notifications too
+              api.markReminderSent(todo.id)
+                .then(updatedTodo => {
+                  // Update the todos state to reflect the change
+                  setTodos(prevTodos =>
+                    prevTodos.map(t => t.id === todo.id ? updatedTodo : t)
+                  );
+                  setFilteredTodos(prevFiltered =>
+                    prevFiltered.map(t => t.id === todo.id ? updatedTodo : t)
+                  );
+                })
+                .catch(error => {
+                  console.error("Failed to mark reminder as sent:", error);
+                });
+            }
+          }
+        }
+      });
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, [todos]);
 
   // Fetch All Conversations
   const loadAllConversations = useCallback(async () => {
@@ -284,32 +415,42 @@ export default function DashboardPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!modalState.title.trim()) return;
     setIsSubmitting(true);
+    setIsLoadingTodos(true);
     try {
+      const taskData = {
+        title: modalState.title,
+        description: modalState.description,
+        priority: modalState.priority,
+        due_date: modalState.due_date || null,
+        is_recurring: !!modalState.recurrence_pattern,
+        recurrence_pattern: modalState.recurrence_pattern || null,
+      };
+
       if (editingTodo) {
-        const updated = await api.updateTask(editingTodo.id, {
-          title: input,
-          description,
-          priority,
-        });
+        const updated = await api.updateTask(editingTodo.id, taskData);
         setTodos((prev) =>
           prev.map((t) => (t.id === editingTodo.id ? updated : t)),
         );
+        // Update filtered todos as well
+        setFilteredTodos(prev =>
+          prev.map(t => (t.id === editingTodo.id ? updated : t))
+        );
       } else {
-        const newTodo = await api.createTask({
-          title: input,
-          description,
-          priority,
-          tags: [],
-        });
+        const newTodo = await api.createTask({ ...taskData, tags: [] });
         setTodos((prev) => [newTodo, ...prev]);
+        // If we're in search/filter mode, also update filtered todos
+        if (searchMode) {
+          setFilteredTodos(prev => [newTodo, ...prev]);
+        }
       }
       closeModal();
     } catch (err) {
       console.error(err);
     } finally {
       setIsSubmitting(false);
+      setIsLoadingTodos(false);
     }
   };
 
@@ -380,7 +521,7 @@ export default function DashboardPage() {
 
             if (data.done) {
               setConvId(data.conversation_id);
-              loadTodos();
+              loadTodos(); // This will refresh both todos and filteredTodos
             }
           } catch (e) {
             console.error("Error parsing stream chunk", e);
@@ -396,36 +537,55 @@ export default function DashboardPage() {
 
   const toggleTodo = async (id: number) => {
     try {
+      setIsLoadingTodos(true);
       const updated = await api.toggleComplete(id);
       setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
+      // Update filtered todos as well
+      setFilteredTodos(prev => prev.map(t => (t.id === id ? updated : t)));
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsLoadingTodos(false);
     }
   };
 
   const deleteTodo = async (id: number) => {
     if (!confirm("Delete permanently?")) return;
     try {
+      setIsLoadingTodos(true);
       await api.deleteTask(id);
       setTodos((prev) => prev.filter((t) => t.id !== id));
+      // Update filtered todos as well
+      setFilteredTodos(prev => prev.filter(t => t.id !== id));
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsLoadingTodos(false);
     }
   };
 
   const openEditModal = (todo: any) => {
     setEditingTodo(todo);
-    setInput(todo.title);
-    setDescription(todo.description || "");
-    setPriority(todo.priority);
+    setModalState({
+      title: todo.title,
+      description: todo.description || "",
+      priority: todo.priority,
+      due_date: todo.due_date ? new Date(todo.due_date).toISOString().split('T')[0] : "",
+      recurrence_pattern: todo.recurrence_pattern || "",
+    });
     setShowModal(true);
   };
 
   const closeModal = () => {
     setShowModal(false);
     setEditingTodo(null);
-    setInput("");
-    setDescription("");
+    setModalState({
+      title: "",
+      description: "",
+      priority: "medium",
+      due_date: "",
+      recurrence_pattern: "",
+    });
   };
 
   const doneCount = todos.filter((t) => t.completed).length;
@@ -445,445 +605,85 @@ export default function DashboardPage() {
       </div>
 
       <div className="max-w-xl mx-auto px-4 sm:px-6 pt-10 relative z-10">
-        <header className="flex justify-between items-start mb-6">
-          <div>
-            <h1 className="text-xl sm:text-3xl font-black text-white tracking-tighter">
-              MICRO TASK AI
-            </h1>
-            <p className="text-slate-500 text-xs font-bold tracking-widest">
-              {user?.email}
-            </p>
-          </div>
-          <button
-            title="Sign out"
-            aria-label="Sign out"
-            onClick={signOut}
-            className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/50 hover:bg-red-500/10 transition-all"
-          >
-            <LogOut size={20} className="text-slate-400" />
-          </button>
-        </header>
+        <Header user={user} signOut={signOut} />
 
-        <section className="mb-6 p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-xl">
-          <div className="flex items-center gap-2 mb-1">
-            <Zap size={14} className="text-indigo-400" />
-            <h2 className="text-[10px] font-black uppercase tracking-widest text-indigo-300">
-              The Micro Task Method
-            </h2>
-          </div>
-          <p className="text-[11px] text-slate-400 leading-snug">
-            Micro-tasks are tiny, clear actions that take about 2 minutes to
-            execute and help you start without feeling overwhelmed. They turn
-            big goals into easy first steps and help you get into focus fast.
-          </p>
-        </section>
+        <StatsSection todos={todos} doneCount={doneCount} />
 
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-8">
-          <StatBox
-            label="Total"
-            val={todos.length}
-            color="text-indigo-400"
-            Icon={ListTodo}
-          />
-          <StatBox
-            label="Active"
-            val={todos.length - doneCount}
-            color="text-amber-400"
-            Icon={Clock}
-          />
-          <StatBox
-            label="Done"
-            val={doneCount}
-            color="text-emerald-400"
-            Icon={CheckSquare}
-          />
-        </div>
+        {/* Search Bar */}
+        <SearchBar
+          onSearch={handleSearch}
+          onClear={handleClearSearch}
+        />
 
-        <section className="space-y-2">
-          <h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500 mb-3 px-1">
-            Current Queue
-          </h2>
-          {todos.length === 0 ? (
-            <div className="text-center py-12 bg-slate-900/10 rounded-xl border border-dashed border-slate-800">
-              <p className="text-slate-600 font-bold italic text-xs">
-                You're all caught up! ☕
-              </p>
-            </div>
-          ) : (
-            todos.map((todo) => (
-              <div
-                key={todo.id}
-                className={`group relative flex items-center p-3 sm:p-4 rounded-xl transition-all border backdrop-blur-md ${
-                  todo.completed
-                    ? "bg-slate-900/20 border-slate-800/30 opacity-50"
-                    : "bg-slate-800/30 border-slate-700/40 hover:border-indigo-500/30"
-                }`}
-              >
-                <div
-                  className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${
-                    todo.priority === "high"
-                      ? "bg-red-500"
-                      : todo.priority === "medium"
-                        ? "bg-amber-500"
-                        : "bg-emerald-500"
-                  }`}
-                />
-                <button
-                  title="Toggle Complete"
-                  aria-label="Toggle Complete"
-                  onClick={() => toggleTodo(todo.id)}
-                  className={`h-5 w-5 shrink-0 transition-all ${
-                    todo.completed
-                      ? "text-indigo-500"
-                      : "text-slate-600 hover:text-indigo-400"
-                  }`}
-                >
-                  {todo.completed ? (
-                    <CheckCircle2 size={20} />
-                  ) : (
-                    <Circle size={20} />
-                  )}
-                </button>
-                <div
-                  className="flex-1 ml-3 min-w-0 cursor-pointer"
-                  onClick={() => openEditModal(todo)}
-                >
-                  <h3
-                    className={`font-bold truncate text-sm leading-tight ${
-                      todo.completed
-                        ? "text-slate-600 line-through"
-                        : "text-white"
-                    }`}
-                  >
-                    {todo.title}
-                  </h3>
-                  {todo.description && (
-                    <p className="text-[10px] mt-1 truncate text-slate-500 font-medium tracking-tight">
-                      {todo.description}
-                    </p>
-                  )}
-                </div>
-                <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    title="Edit Task"
-                    aria-label="Edit Task"
-                    onClick={() => openEditModal(todo)}
-                    className="p-1.5 text-slate-500 hover:text-indigo-400"
-                  >
-                    <Edit3 size={16} />
-                  </button>
-                  <button
-                    title="Delete Task"
-                    aria-label="Delete Task"
-                    onClick={() => deleteTodo(todo.id)}
-                    className="p-1.5 text-slate-500 hover:text-red-500"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </section>
+        {/* Filter & Sort Controls */}
+        <FilterSortControls
+          onApplyFilters={handleApplyFilters}
+          onResetFilters={handleResetFilters}
+        />
+
+        <TaskList
+          todos={todos}
+          filteredTodos={filteredTodos}
+          searchMode={searchMode}
+          toggleTodo={toggleTodo}
+          openEditModal={openEditModal}
+          deleteTodo={deleteTodo}
+          loadingTodos={isLoadingTodos}
+        />
       </div>
 
-      {/* Floating Chat Trigger */}
-      <button
-        title="Toggle AI Chat"
-        aria-label="Toggle AI Chat"
-        onClick={() => setIsChatOpen(!isChatOpen)}
-        className="fixed bottom-10 left-8 h-14 w-14 bg-slate-800 text-indigo-400 rounded-2xl shadow-xl flex items-center justify-center border border-slate-700 z-50 hover:bg-slate-700 transition-all shadow-indigo-500/5"
-      >
-        <MessageSquare size={28} />
-      </button>
+      <FloatingActions
+        setIsChatOpen={setIsChatOpen}
+        setShowModal={setShowModal}
+        closeModal={closeModal}
+      />
 
-      {/* Floating Add Trigger */}
-      <button
-        title="Add Task"
-        aria-label="Add Task"
-        className="fixed bottom-10 right-8 h-16 w-16 bg-indigo-600 text-white rounded-2xl shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 border-t border-white/20"
-        onClick={() => {
-          closeModal();
-          setShowModal(true);
-        }}
-      >
-        <Plus size={32} className="text-white" strokeWidth={3} />
-      </button>
+      <ChatInterface
+        isChatOpen={isChatOpen}
+        setIsChatOpen={setIsChatOpen}
+        user={user}
+        chatMessages={chatMessages}
+        setChatMessages={setChatMessages}
+        chatInput={chatInput}
+        setChatInput={setChatInput}
+        isChatLoading={isChatLoading}
+        toolStatus={toolStatus}
+        hasMoreMessages={hasMoreMessages}
+        messageOffset={messageOffset}
+        loadChatHistory={loadChatHistory}
+        convId={convId}
+        setConvId={setConvId}
+        setMessageOffset={setMessageOffset}
+        handleChatSubmit={handleChatSubmit}
+        showConversations={showConversations}
+        setShowConversations={setShowConversations}
+        loadAllConversations={loadAllConversations}
+        conversationsLoading={conversationsLoading}
+        allConversations={allConversations}
+        loadSpecificConversation={loadSpecificConversation}
+        deleteSpecificConversation={deleteSpecificConversation}
+        deleteChatHistory={deleteChatHistory}
+      />
 
-      {/* Chat Interface Drawer */}
-      {isChatOpen && (
-        <div className="fixed inset-0 sm:inset-auto sm:bottom-20 sm:left-8 sm:w-80 bg-slate-900 border-0 sm:border sm:border-slate-800 sm:rounded-xl shadow-2xl z-50 flex flex-col sm:h-[450px] h-full animate-in slide-in-from-bottom-2 overflow-hidden">
-          <div className="p-4 sm:p-3 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
-            <h4 className="font-black text-[10px] uppercase tracking-widest text-indigo-400">
-              Micro Task AI
-            </h4>
-            <div className="flex gap-3 sm:gap-2">
-              <button
-                title="Older Messages"
-                aria-label="Older Messages"
-                disabled={!hasMoreMessages}
-                onClick={() => loadChatHistory(messageOffset + 20)}
-                className="text-slate-500 hover:text-indigo-400 disabled:opacity-30"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                title="Newer Messages"
-                aria-label="Newer Messages"
-                disabled={messageOffset === 0}
-                onClick={() => loadChatHistory(Math.max(0, messageOffset - 20))}
-                className="text-slate-500 hover:text-indigo-400 disabled:opacity-30"
-              >
-                <ChevronRight size={16} />
-              </button>
-              <button
-                title="New Conversation"
-                aria-label="New Conversation"
-                onClick={() => {
-                  setConvId(null);
-                  setChatMessages([]);
-                  setMessageOffset(0);
-                }}
-                className="text-slate-500 hover:text-indigo-400"
-              >
-                <Plus size={16} />
-              </button>
-              <button
-                title="View Conversations"
-                aria-label="View Conversations"
-                onClick={async () => {
-                  // Show the conversations panel immediately
-                  setShowConversations(true);
-                  // Set loading state to provide immediate feedback
-                  setConversationsLoading(true);
-                  // Then load the conversations in the background
-                  await loadAllConversations();
-                  // The loading state will be cleared by the loadAllConversations function
-                }}
-                className="text-slate-500 hover:text-indigo-400"
-              >
-                <History size={16} />
-              </button>
-              <button
-                title="Clear History"
-                aria-label="Clear History"
-                onClick={deleteChatHistory}
-                className="text-slate-500 hover:text-red-500"
-              >
-                <Trash size={16} />
-              </button>
-              <button
-                title="Close"
-                aria-label="Close"
-                onClick={() => setIsChatOpen(false)}
-                className="text-slate-500 hover:text-white"
-              >
-                <X size={18} />
-              </button>
-            </div>
-          </div>
+      <ConversationsSidebar
+        showConversations={showConversations}
+        setShowConversations={setShowConversations}
+        loadAllConversations={loadAllConversations}
+        conversationsLoading={conversationsLoading}
+        allConversations={allConversations}
+        loadSpecificConversation={loadSpecificConversation}
+        deleteSpecificConversation={deleteSpecificConversation}
+      />
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 text-[12px] bg-slate-950 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {chatMessages.length === 0 && (
-              <div className="p-4 bg-slate-800/40 rounded-xl text-slate-300 leading-relaxed">
-                Hello{" "}
-                <span className="text-[#00ff41] font-bold">
-                  {user?.name || "User"}
-                </span>
-                ! I'm your Micro Task assistant. How can I help you today?
-              </div>
-            )}
-            {chatMessages.map((m, i) => (
-              <div
-                key={i}
-                className={m.role === "user" ? "text-right" : "text-left"}
-              >
-                {m.content?.trim() && (
-                  <span
-                    className={`inline-block px-4 py-2.5 rounded-xl max-w-[85%] ${
-                      m.role === "user"
-                        ? "bg-indigo-600/20 text-indigo-100 border border-indigo-500/20"
-                        : "bg-slate-800/40 text-slate-200"
-                    }`}
-                  >
-                    {m.content}
-                  </span>
-                )}
-              </div>
-            ))}
-            {isChatLoading && !toolStatus && (
-              <div className="text-indigo-500 animate-fade ml-1">
-                Wait! I am typing...
-              </div>
-            )}
-            {toolStatus && (
-              <div className="text-indigo-500 animate-fade ml-1">
-                {toolStatus}
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          <div className="p-4 sm:p-3 border-t border-slate-800 flex gap-2 bg-slate-900">
-            <input
-              title="Chat Input"
-              aria-label="Chat Input"
-              placeholder="Ask AI to add a task..."
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleChatSubmit()}
-              className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 sm:py-1.5 text-sm sm:text-xs text-white outline-none focus:ring-1 focus:ring-indigo-500"
-            />
-            <button
-              title="Send Message"
-              aria-label="Send Message"
-              onClick={handleChatSubmit}
-              className="bg-indigo-600 px-4 rounded-lg text-white active:scale-95 transition-transform"
-            >
-              <Send size={14} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Conversations Sidebar */}
-      {showConversations && (
-        <div className="fixed inset-0 sm:inset-auto sm:bottom-20 sm:left-8 sm:w-80 bg-slate-900 border-0 sm:border sm:border-slate-800 sm:rounded-xl shadow-2xl z-50 flex flex-col h-full sm:h-[450px] animate-in slide-in-from-bottom-2 overflow-hidden">
-          <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
-            <h4 className="font-black text-[10px] uppercase tracking-widest text-indigo-400">
-              Your Conversations
-            </h4>
-            <button
-              title="Close Conversations"
-              aria-label="Close Conversations"
-              onClick={() => setShowConversations(false)}
-              className="text-slate-500 hover:text-white"
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 text-[12px] bg-slate-950">
-            {conversationsLoading ? (
-              <div className="flex justify-center items-center h-full">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
-              </div>
-            ) : allConversations.length === 0 ? (
-              <div className="p-4 text-center text-slate-500">
-                No conversations yet
-              </div>
-            ) : (
-              allConversations.map((conv) => (
-                <div
-                  key={conv.id}
-                  className="p-3 bg-slate-800/40 rounded-lg flex justify-between items-start group"
-                >
-                  <div
-                    className="flex-1 cursor-pointer hover:bg-slate-700/30 rounded p-1 -m-1"
-                    onClick={() => loadSpecificConversation(conv.id)}
-                  >
-                    <div className="font-medium text-white truncate">
-                      {conv.preview}
-                    </div>
-                    <div className="text-[10px] text-slate-400 mt-1">
-                      {new Date(conv.updated_at).toLocaleDateString()} •{" "}
-                      {conv.message_count} messages
-                    </div>
-                  </div>
-                  <button
-                    title="Delete Conversation"
-                    aria-label="Delete Conversation"
-                    onClick={async (e) => {
-                      e.stopPropagation(); // Prevent triggering the parent click
-                      if (
-                        confirm(
-                          "Are you sure you want to delete this conversation?",
-                        )
-                      ) {
-                        await deleteSpecificConversation(conv.id);
-                      }
-                    }}
-                    className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-500 ml-2"
-                  >
-                    <Trash size={14} />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {showModal && (
-        <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            onClick={closeModal}
-          />
-          <div className="relative w-full max-w-sm bg-slate-900 border border-slate-800 rounded-t-xl sm:rounded-xl p-6 animate-in slide-in-from-bottom-4 duration-300 shadow-2xl">
-            <h2 className="text-lg font-black text-white mb-4 uppercase tracking-tighter">
-              {editingTodo ? "Edit Segment" : "New Segment"}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <input
-                title="Task Name"
-                aria-label="Task Name"
-                required
-                autoFocus
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-1 focus:ring-indigo-500 outline-none font-bold text-sm"
-                placeholder="What needs doing?"
-              />
-              <textarea
-                title="Task Description"
-                aria-label="Task Description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-1 focus:ring-indigo-500 outline-none text-xs"
-                placeholder="Optional details..."
-                rows={2}
-              />
-              <div className="flex gap-2">
-                <PriorityBtn
-                  label="Low"
-                  current={priority}
-                  set={setPriority}
-                  val="low"
-                  color="bg-emerald-500"
-                />
-                <PriorityBtn
-                  label="Mid"
-                  current={priority}
-                  set={setPriority}
-                  val="medium"
-                  color="bg-amber-500"
-                />
-                <PriorityBtn
-                  label="Urgent"
-                  current={priority}
-                  set={setPriority}
-                  val="high"
-                  color="bg-red-500"
-                />
-              </div>
-              <button
-                title="Save"
-                aria-label="Save"
-                type="submit"
-                disabled={isSubmitting || !input.trim()}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-lg font-black text-white transition-all disabled:opacity-40 text-xs uppercase tracking-widest"
-              >
-                {isSubmitting
-                  ? "Syncing..."
-                  : editingTodo
-                    ? "Update Task"
-                    : "Create Task"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      <TaskModal
+        show={showModal}
+        editing={!!editingTodo}
+        onClose={closeModal}
+        onSubmit={handleSubmit}
+        state={modalState}
+        setState={setModalState}
+        isSubmitting={isSubmitting}
+      />
     </main>
   );
 }

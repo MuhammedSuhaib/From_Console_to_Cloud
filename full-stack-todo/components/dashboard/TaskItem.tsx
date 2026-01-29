@@ -1,6 +1,6 @@
 // frontend/full-stack-todo/components/TaskItem.tsx
 import React from "react";
-import { Task } from "../types";
+import { Task } from '../../types';
 
 interface TaskItemProps {
   task: Task;
@@ -20,7 +20,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onDelete }) => {
   return (
     <li
       key={task.id}
-      className="flex items-center p-4 bg-gray-100 rounded-lg shadow hover:shadow-md transition"
+      className="flex items-center p-4 bg-gray-100 rounded-lg shadow hover:shadow-md focus:shadow-md active:shadow-md transition"
     >
       <input
         placeholder="checkbox"
@@ -60,7 +60,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onDelete }) => {
         </span>
         <button
           onClick={handleDelete}
-          className="ml-2 bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg transition text-sm"
+          className="ml-2 bg-red-500 hover:bg-red-600 focus:bg-red-600 active:bg-red-600 text-white px-3 py-1 rounded-lg transition text-sm"
         >
           Delete
         </button>

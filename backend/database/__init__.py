@@ -14,7 +14,7 @@ if not DATABASE_URL:
 
 logger.info(f"Connecting to database: {DATABASE_URL.replace('@', '[@]').replace(':', '[:]') if DATABASE_URL else 'None'}")
 
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_engine(DATABASE_URL, echo=True, pool_pre_ping=True)
 
 def create_db_and_tables():
     """Create database tables"""

@@ -10,6 +10,11 @@ export interface Task {
   tags: string[];
   created_at: string;
   updated_at: string;
+  // Phase V: Advanced Features
+  due_date?: string; // ISO string format
+  is_recurring?: boolean;
+  recurrence_pattern?: string;
+  reminder_sent?: boolean;
 }
 
 export interface TaskCreate {
@@ -18,6 +23,10 @@ export interface TaskCreate {
   priority?: 'low' | 'medium' | 'high';
   category?: string;
   tags?: string[];
+  // Phase V: Advanced Features
+  due_date?: string; // ISO string format
+  is_recurring?: boolean;
+  recurrence_pattern?: string;
 }
 
 export interface TaskUpdate {
@@ -27,9 +36,28 @@ export interface TaskUpdate {
   category?: string;
   tags?: string[];
   completed?: boolean;
+  // Phase V: Advanced Features
+  due_date?: string; // ISO string format
+  is_recurring?: boolean;
+  recurrence_pattern?: string;
 }
 
 export interface ApiResponse<T> {
   data: T;
   message?: string;
+}
+
+// Interface for filter and sort parameters
+export interface FilterSortParams {
+  status?: 'all' | 'pending' | 'completed';
+  priority?: 'low' | 'medium' | 'high';
+  tags?: string[];
+  sort_by?: 'priority' | 'due_date' | 'created_at' | 'updated_at';
+  sort_order?: 'asc' | 'desc';
+  category?: string;
+}
+
+// Interface for search parameters
+export interface SearchParams {
+  keyword: string;
 }

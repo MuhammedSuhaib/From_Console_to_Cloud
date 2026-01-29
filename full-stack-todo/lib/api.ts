@@ -48,4 +48,25 @@ export const api = {
     request<any>(`/api/tasks/${id}/complete`, {
       method: "PATCH",
     }),
+
+  // Phase V: Advanced Features
+  searchTasks: (keyword: string) => {
+    const params = new URLSearchParams({ keyword });
+    return request<any[]>(`/api/tasks/search?${params}`);
+  },
+
+  filterSortTasks: (params: any) => {
+    const queryParams = new URLSearchParams();
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+        queryParams.append(key, params[key]);
+      }
+    });
+    return request<any[]>(`/api/tasks/filter-sort?${queryParams}`);
+  },
+
+  markReminderSent: (id: number) =>
+    request<any>(`/api/tasks/${id}/mark-reminder-sent`, {
+      method: "PATCH",
+    }),
 };

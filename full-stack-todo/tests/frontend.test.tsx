@@ -1,9 +1,7 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import TaskItem from '../components/TaskItem';
-import TaskList from '../components/TaskList';
-import TaskForm from '../components/TaskForm';
+import TaskItem from '../components/dashboard/TaskItem';
+import TaskForm from '../components/dashboard/TaskForm';
 import AuthGuard from '../components/AuthGuard';
 
 // Mock the useAuth hook
