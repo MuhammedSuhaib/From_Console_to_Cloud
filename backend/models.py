@@ -27,6 +27,11 @@ class Task(SQLModel, table=True):
     priority: TaskPriority = TaskPriority.medium
     category: Optional[str] = None
     tags: List[str] = Field(default_factory=list, sa_type=JSON)
+    due_date: Optional[datetime] = Field(default=None)
+    is_recurring: bool = Field(default=False)
+    recurrence_pattern: Optional[str] = Field(default=None) # e.g., "daily", "weekly"
+    reminder_sent: bool = Field(default=False)
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -42,6 +47,16 @@ class Conversation(SQLModel, table=True):
         back_populates="conversation",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
+
+
+class PushSubscription(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: str = Field(index=True)
+    endpoint: str
+    p256dh: str
+    auth: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class Message(SQLModel, table=True):

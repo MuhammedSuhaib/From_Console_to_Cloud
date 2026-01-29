@@ -33,7 +33,7 @@ export function PriorityBtn({ label, current, set, val, color }: any) {
       className={`flex-1 py-3 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all border-2 ${
         active
           ? `${color} border-transparent text-white shadow-lg`
-          : "bg-slate-800/30 border-slate-800/80 text-slate-500 hover:border-slate-700"
+          : "bg-slate-800/30 border-slate-800/80 text-slate-500 hover:border-slate-700 focus:border-slate-700 active:border-slate-700"
       }`}
     >
       {label}

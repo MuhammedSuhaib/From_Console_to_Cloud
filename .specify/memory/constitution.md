@@ -565,11 +565,62 @@ Tool: update_task
 - Use Docker Desktop for container management
 - Deploy with basic cloud-native patterns and practices
 
-**Phase V**: Enterprise Features
-- Multi-tenancy
-- Advanced analytics
-- Integrations (Slack, email, calendars)
-- Audit logging and compliance
+**Phase V**: Advanced Cloud Deployment
+- Advanced Level Functionality on Azure (AKS) or Google Cloud (GKE) or Oracle Cloud (OKE)
+- Objective: Implement advanced features and deploy first on Minikube locally and then to production-grade Kubernetes on Azure/Google Cloud/Oracle and Kafka within Kubernetes Cluster or with a managed service like Redpanda Cloud
+- 💡Development Approach: Use the Agentic Dev Stack workflow: Write spec → Generate plan → Break into tasks → Implement via Claude Code. No manual coding allowed. We will review the process, prompts, and iterations to judge each phase and project.
+- Part A: Advanced Features
+  - Implement all Advanced Level features (Recurring Tasks, Due Dates & Reminders)
+  - Implement Intermediate Level features (Priorities, Tags, Search, Filter, Sort)
+  - Add event-driven architecture with Kafka
+  - Implement Dapr for distributed application runtime
+- Part B: Local Deployment
+  - Deploy to Minikube
+  - Deploy Dapr on Minikube use Full Dapr: Pub/Sub, State, Bindings (cron), Secrets, Service Invocation
+- Part C: Cloud Deployment
+  - Deploy to Azure (AKS)/Google Cloud (GKE)/Oracle Cloud (OKE)
+  - Deploy Dapr on GKE/AKS/OKE use Full Dapr: Pub/Sub, State, Bindings (cron), Secrets, Service Invocation
+  - Use Kafka on Confluent/Redpanda Cloud. If you have any trouble with kafka access you can add any other PubSub Component with Dapr.
+  - Set up CI/CD pipeline using Github Actions
+  - Configure monitoring and logging
+- Microsoft Azure Setup (AKS)
+  - US$200 credits for 30 days, plus 12 months of selected free services
+  - Sign up at https://azure.microsoft.com/en-us/free/
+  - Create a Kubernetes cluster
+  - Configure kubectl to connect with Cluster
+  - Deploy using Helm charts from Phase IV
+- Oracle Cloud Setup (OKE) (Recommended - Always Free)
+  - Sign up at https://www.oracle.com/cloud/free/
+  - Create OKE cluster (4 OCPUs, 24GB RAM - always free)
+  - No credit card charge after trial
+  - Best for learning without time pressure
+- Google Cloud Setup (GKE)
+  - US$300 credits, usable for 90 days for new customers
+  - Sign up at https://cloud.google.com/free?hl=en
+- Kafka Use Cases in Phase V
+  - Event-driven architecture for decoupled services
+  - Asynchronous processing for recurring tasks and reminders
+  - Complete audit trail with activity history
+  - Real-time multi-client synchronization
+  - Loose coupling between services for better scalability
+- Kafka Service Recommendations
+  - For Cloud Deployment: Redpanda Cloud (Free Serverless tier, Kafka-compatible, no Zookeeper, fast, easy setup), Confluent Cloud ($400 credit for 30 days, Industry standard, Schema Registry, great docs), CloudKarafka ("Developer Duck" free plan, Simple, 5 topics free), Aiven ($300 credit trial, Fully managed, multi-cloud)
+  - For Local Development (Minikube): Redpanda (Docker) - Easy, Single binary, no Zookeeper, Kafka-compatible, Bitnami Kafka Helm - Medium, Kubernetes-native, Helm chart, Strimzi Operator - Medium-Hard, Production-grade K8s operator
+- Primary Recommendation: Self-Hosted Kafka in Kubernetes
+  - Deploy Kafka directly within your K8s cluster using the Strimzi operator
+  - Free cost
+  - Dapr PubSub makes Kafka-swappable - same APIs, clients work unchanged
+  - No Zookeeper - simpler architecture
+  - Fast setup - under 5 minutes
+  - REST API + Native protocols
+- Dapr Integration Guide
+  - Dapr (Distributed Application Runtime) is a portable, event-driven runtime that simplifies building microservices
+  - Dapr Building Blocks for Todo App: Pub/Sub (Kafka abstraction), State Management (Conversation state storage), Service Invocation (Frontend → Backend), Secrets Management (Secure credential handling), Jobs API (Scheduled reminders)
+  - Benefits: Single HTTP API for all infrastructure, Connection strings in code eliminated, Built-in retry logic, Automatic service discovery, Secure secret store integration, Vendor lock-in avoided through YAML config changes
+- Submission Requirements
+  - Required Submissions: Public GitHub Repository containing all source code for all completed phases, /specs folder with all specification files, CLAUDE.md with Claude Code instructions, README.md with comprehensive documentation, Clear folder structure for each phase
+  - Deployed Application Links: Phase II: Vercel/frontend URL + Backend API URL, Phase III-V: Chatbot URL, Phase IV: Instructions for local Minikube setup, Phase V: DigitalOcean deployment URL
+  - Demo Video (maximum 90 seconds): Demonstrate all implemented features, Show spec-driven development workflow
 
 ---
 

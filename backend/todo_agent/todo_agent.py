@@ -14,6 +14,10 @@ from mcp_server.mcp_server import (
     complete_task,
     delete_task,
     update_task,
+    search_tasks,
+    filter_sort_tasks,
+    get_task,
+    mark_reminder_sent
 )
 
 
@@ -59,6 +63,7 @@ Commands:
 - Complete task [id]
 - Update task [id] [new title/description]
 - Delete task [id]
+- Acknowledge/snooze reminder for [id] (Use when user indicates they've seen or acknowledged a reminder)
 
 If title is provided, ALWAYS create the task.
 NEVER ask for description.
@@ -70,6 +75,8 @@ Before update/complete/delete by name:
 ALWAYS call list_my_tasks again.
 Never ask user to retry.
 Never ask confirmation unless destructive.
+
+If a user asks to snooze or acknowledge a reminder, use the acknowledge_reminder tool to silence further alerts for that task.
 """
 
 
@@ -82,11 +89,33 @@ def get_user_info(ctx: RunContextWrapper[UserContext]) -> str:
 
 @function_tool
 def add_new_task(
-    ctx: RunContextWrapper[UserContext], title: str, description: str = None
+    ctx: RunContextWrapper[UserContext],
+    title: str,
+    description: str = None,
+    priority: str = "medium",
+    tags: list = None,
+    due_date: str = None,
+    is_recurring: bool = False,
+    recurrence_pattern: str = None
 ) -> str:
-    """Add a new task."""
-    # Bridging to the official MCP server tool
-    return str(add_task(user_id=ctx.context.uid, title=title, description=description))
+    """
+    Add a new task with advanced Phase V features.
+    Args:
+        priority: 'low', 'medium', or 'high'
+        tags: List of strings for categorization
+        due_date: ISO format string
+        recurrence_pattern: 'daily', 'weekly', etc.
+    """
+    return str(add_task(
+        user_id=ctx.context.uid,
+        title=title,
+        description=description,
+        priority=priority,
+        tags=tags or [],
+        due_date=due_date,
+        is_recurring=is_recurring,
+        recurrence_pattern=recurrence_pattern
+    ))
 
 
 @function_tool
@@ -116,17 +145,60 @@ def modify_task(
     task_id: int,
     title: str = None,
     description: str = None,
+    priority: str = None,
+    tags: list = None,
+    due_date: str = None,
+    is_recurring: bool = None,
+    recurrence_pattern: str = None
 ) -> str:
-    """Update a task."""
-    # Bridging to the official MCP server tool
+    """Update any attribute of an existing task including Phase V features."""
     return str(
         update_task(
             user_id=ctx.context.uid,
             task_id=task_id,
             title=title,
             description=description,
+            priority=priority,
+            tags=tags,
+            due_date=due_date,
+            is_recurring=is_recurring,
+            recurrence_pattern=recurrence_pattern
         )
     )
+
+
+@function_tool
+def find_tasks(ctx: RunContextWrapper[UserContext], keyword: str) -> str:
+    """Search for tasks containing a specific keyword."""
+    return str(search_tasks(user_id=ctx.context.uid, keyword=keyword))
+
+
+@function_tool
+def organize_tasks(
+    ctx: RunContextWrapper[UserContext],
+    status: str = None,
+    priority: str = None,
+    sort_by: str = "created_at"
+) -> str:
+    """Filter and sort tasks based on criteria."""
+    return str(filter_sort_tasks(
+        user_id=ctx.context.uid,
+        status=status,
+        priority=priority,
+        sort_by=sort_by
+    ))
+
+
+@function_tool
+def get_task_details(ctx: RunContextWrapper[UserContext], task_id: int) -> str:
+    """Get detailed information about a specific task."""
+    return str(get_task(user_id=ctx.context.uid, task_id=task_id))
+
+
+@function_tool
+def acknowledge_reminder(ctx: RunContextWrapper[UserContext], task_id: int) -> str:
+    """Mark a reminder as sent/acknowledged to stop further alerts for a task."""
+    return str(mark_reminder_sent(user_id=ctx.context.uid, task_id=task_id))
 
 
 Todo_Agent = Agent[UserContext](
@@ -139,6 +211,10 @@ Todo_Agent = Agent[UserContext](
         finish_task,
         remove_task,
         modify_task,
+        find_tasks,
+        organize_tasks,
+        get_task_details,
+        acknowledge_reminder,
     ],
     model=model_config,
 )

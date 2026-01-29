@@ -11,3 +11,6 @@ alembic
 psycopg2-binary
 requests
 openai-agents
+python-dateutil
+APScheduler
+pywebpush

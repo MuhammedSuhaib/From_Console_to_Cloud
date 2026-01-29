@@ -213,7 +213,9 @@ async def chat_endpoint(
                 )
                 async for event in result.stream_events():
                     if event.type == "run_item_stream_event" and event.name == "tool_called":
-                        yield f"data: {json.dumps({'tool': event.item.name})}\n\n"
+                        # The SDK uses 'tool_name' for ToolCallItem objects
+                        t_name = getattr(event.item, 'tool_name', 'task')
+                        yield f"data: {json.dumps({'tool': t_name})}\n\n"
 
                     if event.type == "raw_response_event" and isinstance(event.data, ResponseTextDeltaEvent):
                         chunk = event.data.delta

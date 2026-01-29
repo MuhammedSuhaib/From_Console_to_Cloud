@@ -22,6 +22,8 @@ interface AuthContextType {
   signUp: (name: string, email: string, password: string) => Promise<void>;
   signOut: () => void;
   getToken: () => string | null;
+  subscribeToPushNotifications: () => Promise<void>;
+  unsubscribeFromPushNotifications: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -107,6 +109,110 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return localStorage.getItem('auth_token');
   };
 
+  const subscribeToPushNotifications = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      console.warn('Push messaging is not supported');
+      return;
+    }
+
+    try {
+      // Register the service worker
+      const registration = await navigator.serviceWorker.register('/sw.js');
+
+      // Request notification permission
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        console.warn('Notification permission not granted');
+        return;
+      }
+
+      // Check if VAPID key is available before subscribing
+      if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) {
+        console.warn('VAPID public key not configured. Push notifications will not work.');
+        return;
+      }
+
+      // Subscribe to push notifications
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY),
+      });
+
+      // Send subscription to backend
+      const subscriptionObj = subscription.toJSON();
+      const token = getToken();
+      if (token && user) {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/notifications/subscribe`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            endpoint: subscriptionObj.endpoint,
+            p256dh: subscriptionObj.keys?.p256dh,
+            auth: subscriptionObj.keys?.auth,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to subscribe to notifications');
+        }
+
+        console.log('Successfully subscribed to push notifications');
+      }
+    } catch (error) {
+      console.error('Error subscribing to push notifications:', error);
+    }
+  };
+
+  const unsubscribeFromPushNotifications = async () => {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+
+      if (subscription) {
+        await subscription.unsubscribe();
+
+        // Remove subscription from backend
+        const token = getToken();
+        if (token && user) {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/notifications/unsubscribe`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to unsubscribe from notifications');
+          }
+
+          console.log('Successfully unsubscribed from push notifications');
+        }
+      }
+    } catch (error) {
+      console.error('Error unsubscribing from push notifications:', error);
+    }
+  };
+
+  // Helper function to convert base64 string to Uint8Array
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding)
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
   const value = {
     user,
     loading,
@@ -114,6 +220,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signOut,
     getToken,
+    subscribeToPushNotifications,
+    unsubscribeFromPushNotifications,
   };
 
   return (
