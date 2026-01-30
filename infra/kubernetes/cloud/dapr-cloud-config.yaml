@@ -1,0 +1,70 @@
+# Dapr Configuration for Cloud Deployment
+# Defines production building blocks using Neon DB and Redpanda Kafka
+
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: task-pubsub
+  namespace: default
+spec:
+  type: pubsub.kafka
+  version: v1
+  metadata:
+  - name: brokers
+    value: "your-redpanda-cluster.kafka-provider.com:9092"  # Replace with your Redpanda/Kafka broker
+  - name: consumerGroup
+    value: "task-group"
+  - name: authRequired
+    value: "true"
+  - name: saslUsername
+    value: "{KAFKA_USERNAME}"  # Will be replaced by Kubernetes secret
+  - name: saslPassword
+    value: "{KAFKA_PASSWORD}"  # Will be replaced by Kubernetes secret
+  - name: saslMechanism
+    value: "SCRAM-SHA-256"
+  - name: version
+    value: "2.1.1"
+---
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: statestore
+  namespace: default
+spec:
+  type: state.postgresql
+  version: v1
+  metadata:
+  - name: connectionString
+    value: "host=your-neon-db.endpoints.neon.tech port=5432 user={NEON_DB_USER} password={NEON_DB_PASSWORD} dbname=todo_production sslmode=require"  # Replace with your Neon DB connection string
+  - name: tableName
+    value: "statestore"
+  - name: actorStateStore
+    value: "true"
+---
+# Secret Store to manage sensitive information
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: secrets-store
+  namespace: default
+spec:
+  type: secretstores.kubernetes
+  version: v1
+  metadata: []
+---
+# Configuration store for application configuration
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: app-config
+  namespace: default
+spec:
+  type: configuration.redis
+  version: v1
+  metadata:
+  - name: redisHost
+    value: "redis-master.redis.svc.cluster.local:6379"
+  - name: redisPassword
+    value: ""
+  - name: enableTLS
+    value: "false"
