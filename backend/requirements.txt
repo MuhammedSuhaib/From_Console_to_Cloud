@@ -18,3 +18,4 @@ confluent-kafka
 dapr
 dapr-ext-fastapi
 python-json-logger
+prometheus-client
