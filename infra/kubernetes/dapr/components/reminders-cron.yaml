@@ -1,0 +1,13 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: reminders-cron
+  namespace: default
+spec:
+  type: bindings.cron
+  version: v1
+  metadata:
+  - name: schedule
+    value: "0 */10 * * * *" # Every 10 minutes
+  - name: route
+    value: "/api/jobs/trigger"

@@ -14,6 +14,7 @@ from schemas.input_output_validation import (
     validate_filter_sort_tasks_input,
     validate_output_format
 )
+from lib.events import publish_task_event
 
 # Initialize the official FastMCP server
 mcp = FastMCP("Focus Task Manager")
@@ -63,6 +64,26 @@ def add_task(user_id: str, title: str, description: Optional[str] = None, priori
         session.add(new_task)
         session.commit()
         session.refresh(new_task)
+
+        # Publish event for the newly created task
+        task_data = {
+            "id": new_task.id,
+            "user_id": new_task.user_id,
+            "title": new_task.title,
+            "description": new_task.description,
+            "completed": new_task.completed,
+            "priority": str(new_task.priority),
+            "category": new_task.category,
+            "tags": new_task.tags,
+            "created_at": new_task.created_at.isoformat(),
+            "updated_at": new_task.updated_at.isoformat(),
+            "due_date": new_task.due_date.isoformat() if new_task.due_date else None,
+            "is_recurring": new_task.is_recurring,
+            "recurrence_pattern": new_task.recurrence_pattern,
+            "reminder_sent": new_task.reminder_sent
+        }
+
+        publish_task_event("task_created", task_data)
 
         result = f"Success: Created task '{new_task.title}' with ID {new_task.id}"
         return validate_output_format(result, "add_task")
@@ -125,6 +146,27 @@ def complete_task(user_id: str, task_id: int) -> str:
             task.updated_at = datetime.utcnow()
             session.add(task)
             session.commit()
+
+            # Publish event for the completed task
+            task_data = {
+                "id": task.id,
+                "user_id": task.user_id,
+                "title": task.title,
+                "description": task.description,
+                "completed": task.completed,
+                "priority": str(task.priority),
+                "category": task.category,
+                "tags": task.tags,
+                "created_at": task.created_at.isoformat(),
+                "updated_at": task.updated_at.isoformat(),
+                "due_date": task.due_date.isoformat() if task.due_date else None,
+                "is_recurring": task.is_recurring,
+                "recurrence_pattern": task.recurrence_pattern,
+                "reminder_sent": task.reminder_sent
+            }
+
+            publish_task_event("task_completed", task_data)
+
             result = f"Success: Task {validated_inputs.task_id} marked as completed."
 
         return validate_output_format(result, "complete_task")
