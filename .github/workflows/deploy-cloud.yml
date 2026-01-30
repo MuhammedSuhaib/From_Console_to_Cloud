@@ -31,6 +31,12 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Lowercase Repo Owner
+      run: |
+        echo "OWNER_LC=${OWNER,,}" >> ${GITHUB_ENV}
+      env:
+        OWNER: "${{ github.repository_owner }}"
+
     - name: Extract metadata for Docker
       id: meta
       uses: docker/metadata-action@v5
@@ -38,7 +44,7 @@ jobs:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
           type=ref,event=branch
-          type=ref,event=pr
+          type=ref=event=pr
           type=sha,prefix={{date 'YYYYMMDD'}}-
           type=raw,value=latest,enable={{is_default_branch}}
 
@@ -49,8 +55,8 @@ jobs:
         file: ./full-stack-todo/Dockerfile
         push: true
         tags: |
-          ${{ env.REGISTRY }}/${{ github.repository_owner }}/todo-frontend:latest
-          ${{ env.REGISTRY }}/${{ github.repository_owner }}/todo-frontend:${{ github.sha }}
+          ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/todo-frontend:latest
+          ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/todo-frontend:${{ github.sha }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
@@ -62,8 +68,8 @@ jobs:
         file: ./backend/Dockerfile
         push: true
         tags: |
-          ${{ env.REGISTRY }}/${{ github.repository_owner }}/todo-backend:latest
-          ${{ env.REGISTRY }}/${{ github.repository_owner }}/todo-backend:${{ github.sha }}
+          ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/todo-backend:latest
+          ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/todo-backend:${{ github.sha }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
@@ -98,9 +104,9 @@ jobs:
         helm upgrade --install todo-app-release ./micro-task-chart \
           --namespace todo-app \
           --values ./infra/kubernetes/cloud/cloud-values.yaml \
-          --set backend.image.repository=${{ env.REGISTRY }}/${{ github.repository_owner }}/todo-backend \
+          --set backend.image.repository=${{ env.REGISTRY }}/${{ env.OWNER_LC }}/todo-backend \
           --set backend.image.tag=${{ github.sha }} \
-          --set frontend.image.repository=${{ env.REGISTRY }}/${{ github.repository_owner }}/todo-frontend \
+          --set frontend.image.repository=${{ env.REGISTRY }}/${{ env.OWNER_LC }}/todo-frontend \
           --set frontend.image.tag=${{ github.sha }} \
           --create-namespace \
           --wait
