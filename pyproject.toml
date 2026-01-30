@@ -28,6 +28,8 @@ dependencies = [
     "dapr>=1.16.0",
     "dapr-ext-fastapi>=1.16.0",
     "confluent-kafka>=2.4.0",
+    "prometheus-client>=0.24.1",
+    "python-json-logger>=4.0.0",
 ]
 
 [project.optional-dependencies]
