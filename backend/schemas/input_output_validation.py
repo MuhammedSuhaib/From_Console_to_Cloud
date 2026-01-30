@@ -30,7 +30,7 @@ class AddTaskInput(BaseModel):
     @validator('recurrence_pattern')
     def validate_recurrence_pattern(cls, v):
         if v is not None and not v.strip():
-            raise ValueError('Recurrence pattern cannot be empty or whitespace')
+            return None  # Return None instead of raising an error for empty/whitespace
         return v.strip() if v else v
 
     @validator('priority')
@@ -81,7 +81,7 @@ class UpdateTaskInput(BaseModel):
     @validator('recurrence_pattern')
     def validate_recurrence_pattern(cls, v):
         if v is not None and not v.strip():
-            raise ValueError('Recurrence pattern cannot be empty or whitespace')
+            return None  # Return None instead of raising an error for empty/whitespace
         return v.strip() if v else v
 
     @validator('priority')
