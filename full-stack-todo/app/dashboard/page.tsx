@@ -461,6 +461,9 @@ export default function DashboardPage() {
     setChatInput("");
     setIsChatLoading(true);
     setToolStatus(null);
+    // Track if any tasks were modified by the AI
+    let tasksWereModified = false;
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/${user?.id}/chat`,
@@ -496,6 +499,10 @@ export default function DashboardPage() {
 
             if (data.tool) {
               setToolStatus(`Tool Call 🛠:\n ${data.tool}...`);
+              // Check if the tool modifies tasks
+              if (['add_task', 'update_task', 'complete_task', 'delete_task'].includes(data.tool)) {
+                tasksWereModified = true;
+              }
             }
 
             if (data.chunk) {
@@ -521,7 +528,10 @@ export default function DashboardPage() {
 
             if (data.done) {
               setConvId(data.conversation_id);
-              loadTodos(); // This will refresh both todos and filteredTodos
+              // Only refresh todos if tasks were actually modified by the AI
+              if (tasksWereModified) {
+                loadTodos(); // This will refresh both todos and filteredTodos
+              }
             }
           } catch (e) {
             console.error("Error parsing stream chunk", e);
