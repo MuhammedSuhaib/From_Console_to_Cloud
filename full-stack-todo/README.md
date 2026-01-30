@@ -118,6 +118,22 @@ From_Console_to_Cloud/
 - Responsive UI with Tailwind CSS
 - Form validation and error handling
 - Real-time task management
+- Advanced Task Capabilities:
+  - Recurring Tasks with configurable patterns (daily, weekly, monthly)
+  - Due Dates & Reminders with automated notification system
+- Search and Filtering:
+  - Advanced Search functionality (keyword matching)
+  - Filter & Sort capabilities (by Priority, Tags, Status, Due Date)
+- AI-Powered Interface:
+  - Natural language task management via chat
+  - Smart task suggestions and automation
+- Modern UI/UX:
+  - Glassmorphism design with priority-colored borders
+  - Smooth animations and transitions
+  - Dark mode optimized interface
+- Event-Driven Architecture:
+  - Real-time updates and notifications
+  - Scalable microservices communication
 
 ## API Endpoints
 
@@ -126,10 +142,16 @@ From_Console_to_Cloud/
 | POST | `/api/auth/register` | Register a new user |
 | POST | `/api/auth/login` | Login and get JWT token |
 | GET | `/api/tasks` | Get all tasks for authenticated user |
-| POST | `/api/tasks` | Create a new task |
-| PUT | `/api/tasks/:id` | Update an existing task |
+| POST | `/api/tasks` | Create a new task (supports due dates, recurrence patterns) |
+| PUT | `/api/tasks/:id` | Update a task (supports due dates, recurrence patterns) |
 | DELETE | `/api/tasks/:id` | Delete a task |
 | PATCH | `/api/tasks/:id` | Update task status |
+| GET | `/api/tasks/search?q={keyword}` | Search tasks by keyword |
+| GET | `/api/tasks/filter` | Filter and sort tasks (by priority, status, due date, tags) |
+| POST | `/api/{user_id}/chat` | AI-powered task management via chat |
+| GET | `/api/{user_id}/history` | Retrieve chat history |
+| GET | `/api/{user_id}/conversations` | Manage chat conversations |
+| DELETE | `/api/{user_id}/conversations/{id}` | Delete conversation |
 
 ## Authentication Flow
 

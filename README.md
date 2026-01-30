@@ -164,6 +164,25 @@ From_Console_to_Cloud/
 - Responsive UI with Tailwind CSS
 - Form validation and error handling
 - Real-time task management
+- Advanced Task Logic:
+  - Recurring Tasks with configurable patterns (daily, weekly, monthly)
+  - Due Dates & Reminders with automated notification system
+- Intermediate Feature Parity:
+  - Advanced Search functionality (keyword matching)
+  - Filter & Sort capabilities (by Priority, Tags, Status, Due Date)
+- Event-Driven Architecture:
+  - Dapr (Distributed Application Runtime) integration
+  - Kafka fallback for cloud environments
+  - Event publishing for task lifecycle events
+- Monitoring and Observability:
+  - Prometheus-based metrics
+  - Structured logging
+  - System health monitoring
+- Cloud-Ready Deployment:
+  - Docker containerization
+  - Kubernetes manifests
+  - GitHub Actions CI/CD pipeline
+  - Multi-platform deployment support
 
 ## API Endpoints
 
