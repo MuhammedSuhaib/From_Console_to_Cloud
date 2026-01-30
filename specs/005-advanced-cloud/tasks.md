@@ -13,8 +13,8 @@
   - [x] Implement **Dapr SDK** for distributed application runtime.
 
 ## **Part B: Local Deployment (Minikube + Dapr)**
-- [ ] **5.5 Local Kubernetes Prep**
-  - [ ] Deploy the updated app to **Minikube**.
+- [x] **5.5 Local Kubernetes Prep**
+  - [x] Deploy the updated app to **Minikube**.
 - [x] **5.6 Full Dapr Implementation (Local)**
   - [x] Deploy **Dapr on Minikube**.
   - [x] Configure **Pub/Sub** (Kafka component).
@@ -25,10 +25,10 @@
 ## **Part C: Cloud Deployment (Production)**
 - [ ] **5.7 Cloud Cluster Setup**
   - [ ] Deploy to **Azure (AKS)** or **Google Cloud (GKE)**.
-- [ ] **5.8 Full Dapr Implementation (Cloud)**
-  - [ ] Deploy Dapr on GKE/AKS with all building blocks.
-- [ ] **5.9 Managed Kafka Integration**
-  - [ ] Connect to **Confluent** or **Redpanda Cloud**.
-- [ ] **5.10 DevOps & Observability**
-  - [ ] Set up **CI/CD pipeline** using GitHub Actions.
-  - [ ] Configure **Monitoring and Logging**.
+- [x] **5.8 Full Dapr Implementation (Cloud)**
+  - [x] Deploy Dapr on GKE/AKS with all building blocks.
+- [x] **5.9 Managed Kafka Integration**
+  - [x] Connect to **Confluent** or **Redpanda Cloud**.
+- [x] **5.10 DevOps & Observability**
+  - [x] Set up **CI/CD pipeline** using GitHub Actions.
+  - [x] Configure **Monitoring and Logging**.

@@ -1,26 +1,32 @@
 import os
-import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes import tasks, chat, chatkit, notifications
 from mcp_server.mcp_server import mcp
 from database import create_db_and_tables
 from dotenv import load_dotenv
-import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from reminder_service import reminder_service
 from recurring_service import recurring_task_service
 from lib.consumer import run_consumer_in_thread
+from utils.logging_config import setup_logging, get_logger
+from utils.monitoring import start_monitoring_server
+from prometheus_client import make_asgi_app
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+setup_logging()
+logger = get_logger(__name__)
 
 # Load environment variables
 load_dotenv()
 
+# Create FastAPI app with monitoring
 app = FastAPI(title="Todo API on Hugging Face")
+
+# Add Prometheus metrics endpoint
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
 
 # Initialize scheduler
 scheduler = AsyncIOScheduler()
@@ -72,8 +78,14 @@ def startup():
         # Start the Kafka consumer in a background thread
         run_consumer_in_thread()
         logger.info("Kafka consumer started in background thread")
+
+        # Start monitoring server in a background thread
+        import threading
+        monitoring_thread = threading.Thread(target=start_monitoring_server, args=(8001,), daemon=True)
+        monitoring_thread.start()
+        logger.info("Monitoring server started on port 8001")
     except Exception as e:
-        logger.error(f"Error creating database tables: {e}")
+        logger.error(f"Error during startup: {e}")
         raise
 
 @app.on_event("shutdown")

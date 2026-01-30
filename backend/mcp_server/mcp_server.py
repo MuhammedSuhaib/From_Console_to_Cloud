@@ -15,11 +15,13 @@ from schemas.input_output_validation import (
     validate_output_format
 )
 from lib.events import publish_task_event
+from utils.monitoring import TASK_CREATED_COUNTER, TASK_COMPLETED_COUNTER, TASK_ERRORS_COUNTER, monitor_task_event
 
 # Initialize the official FastMCP server
 mcp = FastMCP("Focus Task Manager")
 
 @mcp.tool()
+@monitor_task_event("task_created")
 def add_task(user_id: str, title: str, description: Optional[str] = None, priority: Optional[str] = "medium", tags: Optional[List[str]] = None, due_date: Optional[str] = None, is_recurring: Optional[bool] = None, recurrence_pattern: Optional[str] = None) -> str:
     """
     Create a new task in the database.
@@ -85,8 +87,14 @@ def add_task(user_id: str, title: str, description: Optional[str] = None, priori
 
         publish_task_event("task_created", task_data)
 
+        # Increment counter for created tasks
+        TASK_CREATED_COUNTER.inc()
+
         result = f"Success: Created task '{new_task.title}' with ID {new_task.id}"
         return validate_output_format(result, "add_task")
+    except Exception as e:
+        TASK_ERRORS_COUNTER.inc()
+        raise
     finally:
         session.close()
         next(session_gen, None)
@@ -124,6 +132,7 @@ def list_tasks(user_id: str, status: str = "all") -> str:
         next(session_gen, None)
 
 @mcp.tool()
+@monitor_task_event("task_completed")
 def complete_task(user_id: str, task_id: int) -> str:
     """
     Mark a specific task as completed.
@@ -167,9 +176,15 @@ def complete_task(user_id: str, task_id: int) -> str:
 
             publish_task_event("task_completed", task_data)
 
+            # Increment counter for completed tasks
+            TASK_COMPLETED_COUNTER.inc()
+
             result = f"Success: Task {validated_inputs.task_id} marked as completed."
 
         return validate_output_format(result, "complete_task")
+    except Exception as e:
+        TASK_ERRORS_COUNTER.inc()
+        raise
     finally:
         session.close()
         next(session_gen, None)

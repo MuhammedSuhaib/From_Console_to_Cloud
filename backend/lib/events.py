@@ -2,6 +2,7 @@ from confluent_kafka import Producer
 import json
 import logging
 import os
+from utils.dapr_utils import dapr_http_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,7 @@ def delivery_report(err, msg):
 
 def publish_task_event(event_type: str, task_data: dict) -> bool:
     """
-    Publish a task event to Kafka.
+    Publish a task event to Dapr pub/sub, with Kafka fallback if Dapr not available.
 
     Args:
         event_type: Type of event (e.g., 'task_created', 'task_completed', 'task_updated')
@@ -23,6 +24,26 @@ def publish_task_event(event_type: str, task_data: dict) -> bool:
     Returns:
         bool: True if event published successfully, False otherwise
     """
+    # First, try to use Dapr sidecar if available
+    dapr_response = dapr_http_fallback(
+        endpoint="/v1.0/publish/task-pubsub/task-events",
+        method="POST",
+        data={
+            "event_type": event_type,
+            "task_data": task_data,
+            "timestamp": task_data.get('updated_at', task_data.get('created_at'))
+        }
+    )
+
+    if dapr_response is not None:
+        # Dapr succeeded
+        logger.info(f"Published {event_type} event via Dapr for task: {task_data.get('id', 'unknown')}")
+        return True
+    else:
+        # Dapr not available, fall back to Kafka
+        logger.info("Dapr sidecar not available, falling back to Kafka")
+
+    # Fallback to Kafka
     try:
         # Get Kafka configuration from environment variables
         bootstrap_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
@@ -60,7 +81,7 @@ def publish_task_event(event_type: str, task_data: dict) -> bool:
         # callbacks to be triggered
         producer.flush()
 
-        logger.info(f"Published {event_type} event for task: {task_data.get('id', 'unknown')}")
+        logger.info(f"Published {event_type} event via Kafka for task: {task_data.get('id', 'unknown')}")
         return True
 
     except Exception as e:

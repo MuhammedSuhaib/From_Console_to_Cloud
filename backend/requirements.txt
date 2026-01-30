@@ -15,3 +15,6 @@ python-dateutil
 APScheduler
 pywebpush
 confluent-kafka
+dapr
+dapr-ext-fastapi
+python-json-logger
