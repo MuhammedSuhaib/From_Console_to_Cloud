@@ -41,11 +41,11 @@ jobs:
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        images: ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/todo-backend
         tags: |
+          type=sha
           type=ref,event=branch
-          type=ref=event=pr
-          type=sha,prefix={{date 'YYYYMMDD'}}-
+          type=ref,event=tag
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push frontend image
