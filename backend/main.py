@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes import tasks, chat, chatkit, notifications
-from mcp_server.mcp_server import mcp 
+from mcp_server.mcp_server import mcp
 from database import create_db_and_tables
 from dotenv import load_dotenv
 import asyncio
@@ -11,6 +11,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from reminder_service import reminder_service
 from recurring_service import recurring_task_service
+from lib.consumer import run_consumer_in_thread
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -67,6 +68,10 @@ def startup():
         scheduler.add_job(check_reminders_and_recurring_tasks, IntervalTrigger(minutes=10))
         scheduler.start()
         logger.info("Scheduler started successfully")
+
+        # Start the Kafka consumer in a background thread
+        run_consumer_in_thread()
+        logger.info("Kafka consumer started in background thread")
     except Exception as e:
         logger.error(f"Error creating database tables: {e}")
         raise
