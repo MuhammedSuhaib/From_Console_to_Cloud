@@ -86,6 +86,16 @@ def health_check():
     logger.info("Health check endpoint accessed")
     return {"status": "healthy"}
 
+@app.post("/api/jobs/trigger")
+async def trigger_reminders_and_recurring_tasks():
+    """Endpoint for Dapr cron binding to trigger reminder and recurring task checks"""
+    logger.info("Received trigger from Dapr cron binding for reminders and recurring tasks")
+
+    # Call the existing function that handles both reminders and recurring tasks
+    await check_reminders_and_recurring_tasks()
+
+    return {"status": "success", "message": "Reminders and recurring tasks checked successfully"}
+
 # For Hugging Face Spaces
 if __name__ == "__main__":
     import uvicorn

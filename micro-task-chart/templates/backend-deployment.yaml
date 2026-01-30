@@ -15,10 +15,13 @@ spec:
       app.kubernetes.io/component: backend
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "backend"
+        dapr.io/app-port: "7860"
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
       labels:
         {{- include "micro-task-chart.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: backend
@@ -40,11 +43,11 @@ spec:
           args:
             - >
               export DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres-db:5432/{{ .Values.database.postgresDatabase }} &&
-              uvicorn main:app --host 0.0.0.0 --port 8000
+              uvicorn main:app --host 0.0.0.0 --port 7860
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: 8000
+              containerPort: 7860
               protocol: TCP
           env:
             - name: BETTER_AUTH_SECRET

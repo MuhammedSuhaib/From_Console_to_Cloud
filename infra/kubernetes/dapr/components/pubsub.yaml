@@ -1,0 +1,47 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: task-pubsub
+  namespace: default
+spec:
+  type: pubsub.redis
+  version: v1
+  metadata:
+  - name: redisHost
+    value: localhost:6379
+  - name: redisPassword
+    value: ""
+  - name: enableTLS
+    value: false
+---
+# For cloud deployment (PostgreSQL)
+# apiVersion: dapr.io/v1alpha1
+# kind: Component
+# metadata:
+#   name: task-pubsub
+#   namespace: default
+# spec:
+#   type: pubsub.pgpubsub
+#   version: v1
+#   metadata:
+#   - name: connectionString
+#     value: "host=postgres-db port=5432 user=postgres password=postgres dbname=todo_app sslmode=disable"
+#   - name: consumerID
+#     value: "task-consumer"
+---
+# Alternative cloud deployment (Kafka)
+# apiVersion: dapr.io/v1alpha1
+# kind: Component
+# metadata:
+#   name: task-pubsub
+#   namespace: default
+# spec:
+#   type: pubsub.kafka
+#   version: v1
+#   metadata:
+#   - name: brokers
+#     value: "kafka:9092"
+#   - name: consumerGroup
+#     value: "task-group"
+#   - name: disableTls
+#     value: true
