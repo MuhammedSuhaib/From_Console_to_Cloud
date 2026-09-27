@@ -218,9 +218,9 @@ cd full-stack-todo && pnpm dev
 
 ## Deployment
 
-### Frontend (Vercel)
-1. Connect your GitHub repository to Vercel
-2. Set environment variables in Vercel dashboard
+### Frontend (Netlify)
+1. Connect your GitHub repository to Netlify
+2. Set environment variables in Netlify dashboard
 3. Deploy automatically on push to main branch
 
 ### Backend (Docker)
