@@ -30,6 +30,7 @@ dependencies = [
     "confluent-kafka>=2.4.0",
     "prometheus-client>=0.24.1",
     "python-json-logger>=4.0.0",
+    "mcp<2",
 ]
 
 [project.optional-dependencies]

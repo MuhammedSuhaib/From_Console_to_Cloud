@@ -19,3 +19,4 @@ dapr
 dapr-ext-fastapi
 python-json-logger
 prometheus-client
+mcp<2
