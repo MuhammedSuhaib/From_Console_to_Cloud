@@ -26,7 +26,9 @@ def start_kafka_consumer():
             'sasl.password': kafka_password,
             'group.id': 'task-event-consumer-group',
             'auto.offset.reset': 'earliest',
-            'enable.auto.commit': True
+            'enable.auto.commit': True,
+            'client.software.name': 'confluent-kafka-python',
+            'client.software.version': '2.13.0',
         }
 
         # Create consumer

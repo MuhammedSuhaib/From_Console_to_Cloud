@@ -29,7 +29,7 @@ def dapr_http_fallback(endpoint: str, method: str = "POST", data=None, headers=N
     # Check if Dapr sidecar is available
     try:
         dapr_health_url = f"http://localhost:{dapr_port}/v1.0/healthz"
-        health_response = requests.get(dapr_health_url, timeout=2)
+        health_response = requests.get(dapr_health_url, timeout=0.2)
 
         if health_response.status_code == 200:
             # Dapr sidecar is available, use it

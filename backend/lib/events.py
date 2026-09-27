@@ -13,6 +13,35 @@ def delivery_report(err, msg):
     else:
         logger.info(f'Message delivered to {msg.topic()} [{msg.partition()}]')
 
+def _get_kafka_producer():
+    """Lazy initialize and return module-level Kafka Producer instance."""
+    global _producer
+    if _producer is None:
+        try:
+            bootstrap_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
+            kafka_username = os.getenv('KAFKA_USERNAME', '')
+            kafka_password = os.getenv('KAFKA_PASSWORD', '')
+
+            conf = {
+                'bootstrap.servers': bootstrap_servers,
+                'security.protocol': 'SASL_SSL',
+                'sasl.mechanism': 'SCRAM-SHA-256',
+                'sasl.username': kafka_username,
+                'sasl.password': kafka_password,
+                'acks': 'all',
+                'client.software.name': 'confluent-kafka-python',
+                'client.software.version': '2.13.0',
+                'socket.timeout.ms': 1000,
+                'message.timeout.ms': 1000,
+            }
+            _producer = Producer(conf)
+        except Exception as e:
+            logger.error(f"Failed to create Kafka Producer: {e}")
+            _producer = None
+    return _producer
+
+_producer = None
+
 def publish_task_event(event_type: str, task_data: dict) -> bool:
     """
     Publish a task event to Dapr pub/sub, with Kafka fallback if Dapr not available.
@@ -45,23 +74,10 @@ def publish_task_event(event_type: str, task_data: dict) -> bool:
 
     # Fallback to Kafka
     try:
-        # Get Kafka configuration from environment variables
-        bootstrap_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
-        kafka_username = os.getenv('KAFKA_USERNAME', '')
-        kafka_password = os.getenv('KAFKA_PASSWORD', '')
-
-        # Configure Kafka producer with SASL_SSL and SCRAM-SHA-256
-        conf = {
-            'bootstrap.servers': bootstrap_servers,
-            'security.protocol': 'SASL_SSL',
-            'sasl.mechanism': 'SCRAM-SHA-256',
-            'sasl.username': kafka_username,
-            'sasl.password': kafka_password,
-            'acks': 'all'
-        }
-
-        # Create producer
-        producer = Producer(conf)
+        producer = _get_kafka_producer()
+        if producer is None:
+            logger.error("Kafka Producer is not initialized.")
+            return False
 
         # Create the event payload
         event_payload = {
@@ -77,9 +93,8 @@ def publish_task_event(event_type: str, task_data: dict) -> bool:
         # will be triggered from poll() above, or flush() below
         producer.produce('task-events', message_value.encode('utf-8'), callback=delivery_report)
 
-        # Wait for any outstanding messages to be delivered and delivery report
-        # callbacks to be triggered
-        producer.flush()
+        # Flush with short timeout so broken Kafka connection doesn't stall request
+        producer.flush(timeout=1)
 
         logger.info(f"Published {event_type} event via Kafka for task: {task_data.get('id', 'unknown')}")
         return True
