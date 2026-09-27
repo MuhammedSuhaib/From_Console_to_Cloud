@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from sqlalchemy import JSON, Column, TEXT
 from pydantic import BaseModel
@@ -32,15 +32,15 @@ class Task(SQLModel, table=True):
     recurrence_pattern: Optional[str] = Field(default=None) # e.g., "daily", "weekly"
     reminder_sent: bool = Field(default=False)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Conversation(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: str = Field(index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationship to messages
     messages: List["Message"] = Relationship(
@@ -55,8 +55,8 @@ class PushSubscription(SQLModel, table=True):
     endpoint: str
     p256dh: str
     auth: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Message(SQLModel, table=True):
@@ -65,7 +65,7 @@ class Message(SQLModel, table=True):
     user_id: str = Field(index=True)
     role: str  # 'user', 'assistant', or 'system'
     content: str = Field(sa_column=Column(TEXT))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationship back to conversation
     conversation: Conversation = Relationship(back_populates="messages")

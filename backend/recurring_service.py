@@ -1,7 +1,7 @@
 """
 Recurring tasks service for handling recurring task logic.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlmodel import select
 from models import Task
 from database import engine
@@ -106,7 +106,7 @@ class RecurringTaskService:
                     next_occurrence = self._calculate_next_occurrence(task.updated_at, task.recurrence_pattern)
 
                     # If it's time to create the next occurrence
-                    if next_occurrence <= datetime.utcnow():
+                    if next_occurrence <= datetime.now(timezone.utc):
                         tasks_to_recur.append(task)
 
             return tasks_to_recur
@@ -134,8 +134,8 @@ class RecurringTaskService:
                 recurrence_pattern=original_task.recurrence_pattern,
                 reminder_sent=False,  # New occurrence hasn't had reminder sent
                 completed=False,  # New occurrence isn't completed
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
             )
 
             session.add(new_task)

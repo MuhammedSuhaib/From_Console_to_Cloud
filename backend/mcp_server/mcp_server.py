@@ -2,7 +2,7 @@ from mcp.server.fastmcp import FastMCP
 from sqlmodel import select
 from models import Task, TaskPriority
 from database import get_session
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from schemas.input_output_validation import (
     validate_add_task_input,
@@ -152,7 +152,7 @@ def complete_task(user_id: str, task_id: int) -> str:
             result = f"Error: Task with ID {validated_inputs.task_id} not found."
         else:
             task.completed = True
-            task.updated_at = datetime.utcnow()
+            task.updated_at = datetime.now(timezone.utc)
             session.add(task)
             session.commit()
 
@@ -264,7 +264,7 @@ def update_task(user_id: str, task_id: int, title: Optional[str] = None, descrip
                 task.is_recurring = validated_inputs.is_recurring
             if validated_inputs.recurrence_pattern is not None:
                 task.recurrence_pattern = validated_inputs.recurrence_pattern
-            task.updated_at = datetime.utcnow()
+            task.updated_at = datetime.now(timezone.utc)
 
             session.add(task)
             session.commit()
@@ -393,7 +393,7 @@ def mark_reminder_sent(user_id: str, task_id: int) -> str:
             result = f"Error: Task with ID {task_id} not found."
         else:
             task.reminder_sent = True
-            task.updated_at = datetime.utcnow()
+            task.updated_at = datetime.now(timezone.utc)
             session.add(task)
             session.commit()
 

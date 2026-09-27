@@ -1,7 +1,7 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-from datetime import datetime
+from datetime import datetime, timezone
 from models import Task
 from schemas.tasks import TaskCreate, TaskUpdate, TaskResponse
 from database import get_session
@@ -65,7 +65,7 @@ def update_task(
         for k, v in updates.dict(exclude_unset=True).items():
             setattr(task, k, v)
 
-        task.updated_at = datetime.utcnow()
+        task.updated_at = datetime.now(timezone.utc)
         session.commit()
         session.refresh(task)
         logger.info(f"Updated task {task_id} successfully")
@@ -115,7 +115,7 @@ def toggle_complete(
             raise HTTPException(status_code=404)
 
         task.completed = not task.completed
-        task.updated_at = datetime.utcnow()
+        task.updated_at = datetime.now(timezone.utc)
         session.commit()
         session.refresh(task)
         logger.info(f"Toggled completion for task {task_id}, now completed: {task.completed}")
@@ -270,7 +270,7 @@ def mark_reminder_sent(
             raise HTTPException(status_code=404)
 
         task.reminder_sent = True
-        task.updated_at = datetime.utcnow()
+        task.updated_at = datetime.now(timezone.utc)
         session.commit()
         session.refresh(task)
         logger.info(f"Marked reminder as sent for task {task_id}")

@@ -1,7 +1,7 @@
 """
 Reminder service for handling due dates and sending reminders for tasks.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, select
 from models import Task, PushSubscription
 from database import get_session, engine
@@ -28,7 +28,7 @@ class ReminderService:
         """
         with Session(engine) as session:
             # Get current time
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             # Define time window for upcoming due tasks (next 24 hours)
             tomorrow = now + timedelta(hours=24)
 
@@ -49,7 +49,7 @@ class ReminderService:
         Find tasks that are overdue (past due date and not completed)
         """
         with Session(engine) as session:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             # Find tasks that are past their due date but not completed
             stmt = select(Task).where(
@@ -69,7 +69,7 @@ class ReminderService:
             task = session.get(Task, task_id)
             if task:
                 task.reminder_sent = True
-                task.updated_at = datetime.utcnow()
+                task.updated_at = datetime.now(timezone.utc)
                 session.add(task)
                 session.commit()
                 return True
